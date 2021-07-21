@@ -1,4 +1,5 @@
 import itertools
+import functools
 
 import numpy as np
 import scipy.signal
@@ -6,7 +7,16 @@ import cv2
 
 from PIL import Image
 
-import objects
+from animator import objects
+
+
+DEBUG = True
+DEBUG_SHORT = False
+
+
+def debug(log, short=True):
+    if DEBUG_SHORT or (DEBUG and not short):
+        print(f'--- {log} ---')
 
 
 class Surface:
@@ -23,6 +33,7 @@ class Surface:
         Args:
             res (tuple of ints):  Frame resolution in pixels.
         """
+        debug('surface init')
         self.res = res
         self.bitmap = np.zeros(self.res + (4,))
 
@@ -39,6 +50,7 @@ class Surface:
         TODO:
             Scaling.
         """
+        debug('blitting surfaces', short=False)
 
         if ur_corner is None:
             try:
@@ -52,6 +64,8 @@ class Surface:
         """
         Generates png out of bitmap.
         """
+        debug('generating png', short=False)
+
         scaled_alpha = self.bitmap.astype('uint8')
         scaled_alpha = np.transpose(scaled_alpha, (1, 0, 2))[::-1, :, :]
         scaled_alpha[:, :, 3] *= 255
@@ -103,6 +117,7 @@ class AxisSurface(Surface):
             x_bounds (tuple of ints): Interval of x axis to be shown
             y_bounds (tuple of ints): Interval of y axis to be shown
         """
+
         super().__init__(res)
         self.x_bounds = x_bounds
         self.y_bounds = y_bounds
@@ -120,6 +135,7 @@ class AxisSurface(Surface):
         Returns:
             tuple of ints: Pixel coordinates of the point.
         """
+        debug('transforming coordinates', short=True)
         x_res, y_res = self.res
         x_lower_bound, x_upper_bound = self.x_bounds
         y_lower_bound, y_upper_bound = self.y_bounds
@@ -142,6 +158,7 @@ class AxisSurface(Surface):
         Returns:
             bool: True if point is valid.
         """
+        debug('checking if point is valid', short=True)
         if abstract_coords:
             point = self.transform_to_surface_coordinates(point)
         x, y = point
@@ -162,6 +179,8 @@ class AxisSurface(Surface):
         Returns:
             np.array: Processed image.
         """
+        debug('visual enhancement', short=True)
+
         color = Surface.parse_color(color)
         target_image = np.zeros(image.shape + (4,))
         if thickness != 1:
@@ -203,6 +222,7 @@ class AxisSurface(Surface):
         Raises:
             ValueError: Image are not in the same shape.
         """
+        debug('merging images', short=False)
 
         if bottom_img.shape != top_img.shape:
             raise ValueError
@@ -235,6 +255,7 @@ class AxisSurface(Surface):
             interval_of_param (tuple of numbers, optional): First and last value of parameter to be shown.
                 If not specified, the surfaces x_bound will be used
         """
+        debug('blitting parametric object', short=True)
 
         tmp_bitmap = np.zeros(self.res)
         if interval_of_param is None:
@@ -262,6 +283,8 @@ class AxisSurface(Surface):
             settings (dict): Blitting settings
             x_only (bool, optional): Not adding y axis.
         """
+        debug('blitting axes', short=False)
+
         x_axis = objects.ParametricObject(lambda x: x, lambda x: 0)
         y_axis = objects.ParametricObject(lambda x: 0, lambda x: x)
         self.blit_parametric_object(x_axis, settings)
@@ -276,13 +299,15 @@ class AxisSurface(Surface):
             interval (float): Interval between points.
             length (float): Single line length.
         """
+        debug('blitting scale', short=False)
+
         n = int((self.x_bounds[1] - self.x_bounds[0]) // interval)
         graduation = np.linspace(start=self.x_bounds[0]//interval + 1,
                                  stop=self.x_bounds[1]//interval,
                                  num=n)
-        for x_point in graduation:
-            line = objects.ParametricObject(lambda x: x_point, lambda x: x)
-            self.blit_parametric_object(line, settings, interval_of_param=(-length, length))
+        lines = [objects.ParametricObject(lambda x: x_point, lambda x: x, [-length, length]) for x_point in graduation]
+        grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
+        self.blit_parametric_object(grid, settings, interval_of_param=(-length, (2*len(graduation) - 1)*length))
 
 
 class Frame(Surface):
@@ -357,6 +382,7 @@ class Film:
         Args:
             name: Target file.
         """
+        debug('rendering', short=False)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(name, fourcc, self.fps, self.resolution)
         raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
@@ -417,7 +443,7 @@ if __name__ == '__main__':
     frame.blit_parametric_object(func, settings_function)
     # frame.blit_parametric_object(func2, settings_function2)
 
-    frame.blit_x_grid(settings_grid, interval=1, length=.1)
+    frame.blit_x_grid(settings_grid, interval=1, length=1)
     frame.blit_axis_surface()
     frame.generate_png('test_grid.png')
 

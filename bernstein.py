@@ -1,7 +1,6 @@
 import math
 
-import objects
-import basic_func
+from animator import basic_func, objects
 
 
 def bernstein_basis(k, n):

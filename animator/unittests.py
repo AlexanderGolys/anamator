@@ -1,6 +1,6 @@
 import unittest
 
-import basic_func
+from animator import basic_func
 
 
 class TestSurface(unittest.TestCase):

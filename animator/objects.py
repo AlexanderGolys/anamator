@@ -91,9 +91,8 @@ class Axis(ImageObject):
 class ParametricObject(Object):
     """
     Stores object defined by parametric equations.
-
     """
-    def __init__(self, x_function, y_function):
+    def __init__(self, x_function, y_function, bounds=None):
         """
         Args:
             x_function (func): Function of x coordinates.
@@ -102,6 +101,7 @@ class ParametricObject(Object):
         super().__init__()
         self.x_function = x_function
         self.y_function = y_function
+        self.bounds = bounds
 
     def get_point(self, t):
         """
@@ -114,6 +114,35 @@ class ParametricObject(Object):
             tuple of ints: Coordinates of calculated point.
         """
         return self.x_function(t), self.y_function(t)
+
+    def stack_parametric_objects(self, other, t_threshold=None, inclusive=True):
+        """
+        Merging this parametric object with another.
+
+        Example: if this parametric object represents a line, and another another line, then by stacking them
+        we can obtain polygonal chain.
+
+        Args:
+            other (ParametricObject): Object to be merged with this one.
+            t_threshold: The end value of t for the first object.
+            inclusive: If True, value at t_threshold will be calculated with respect to this object.
+
+        Returns:
+            ParametricObject: Merged object.
+
+        """
+        if self.bounds is not None and t_threshold is None:
+            t_threshold = self.bounds[1]
+        x_function = lambda x: self.x_function(x) if x > t_threshold else other.x_function(x - t_threshold)
+        y_function = lambda x: self.y_function(x) if x > t_threshold else other.y_function(x - t_threshold)
+        if inclusive:
+            x_function = lambda x: self.x_function(x) if x >= t_threshold else other.x_function(x - t_threshold)
+            y_function = lambda x: self.y_function(x) if x >= t_threshold else other.y_function(x - t_threshold)
+
+        if self.bounds is not None and other.bounds is not None:
+            return ParametricObject(x_function, y_function,
+                                    [self.bounds[0], self.bounds[1] + other.bounds[1] - other.bounds[0]])
+        return ParametricObject(x_function, y_function)
 
 
 class Function(ParametricObject):
