@@ -43,7 +43,7 @@ def generate_frame(n, generate_png=False, foo=lambda x: 0 if x == 0 else x*math.
     }
 
     frame.add_axis_surface(x_bounds=(0, 1), y_bounds=(-2, 2))
-    frame.add_axes(settings_axes, x_only=True)
+    frame.blit_axes(settings_axes, x_only=True)
     frame.blit_parametric_object(func, settings_function)
     frame.blit_parametric_object(func2, settings_function2)
 

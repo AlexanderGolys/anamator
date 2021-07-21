@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 
 from abc import ABC, abstractmethod
@@ -8,6 +10,7 @@ class Object(ABC):
     """
     Abstract class for all objects
     """
+
     def __init__(self):
         super().__init__()
 
@@ -92,6 +95,7 @@ class ParametricObject(Object):
     """
     Stores object defined by parametric equations.
     """
+
     def __init__(self, x_function, y_function, bounds=None):
         """
         Args:
@@ -131,15 +135,24 @@ class ParametricObject(Object):
             ParametricObject: Merged object.
 
         """
+        spread = t_threshold
         if self.bounds is not None and t_threshold is None:
             t_threshold = self.bounds[1]
-        x_function = lambda x: self.x_function(x) if x > t_threshold else other.x_function(x - t_threshold)
-        y_function = lambda x: self.y_function(x) if x > t_threshold else other.y_function(x - t_threshold)
+            spread = self.bounds[1] - self.bounds[0]
+        x_function = lambda t: self.x_function(t) * int(t < t_threshold) + \
+                               int(t >= t_threshold) * other.x_function(t - spread)
+        y_function = lambda t: self.y_function(t) * int(t < t_threshold) + \
+                               int(t >= t_threshold) * other.y_function(t - spread)
         if inclusive:
-            x_function = lambda x: self.x_function(x) if x >= t_threshold else other.x_function(x - t_threshold)
-            y_function = lambda x: self.y_function(x) if x >= t_threshold else other.y_function(x - t_threshold)
+            x_function = lambda t: self.x_function(t) * int(t <= t_threshold) + \
+                                   int(t > t_threshold) * other.x_function(t - spread)
+            y_function = lambda t: self.y_function(t) * int(t <= t_threshold) + \
+                                   int(t > t_threshold) * other.y_function(t - spread)
 
         if self.bounds is not None and other.bounds is not None:
+            print(f'new bounds: {[self.bounds[0], self.bounds[1] + other.bounds[1] - other.bounds[0]]}; '
+                  f'\n first component starting value ({self.bounds[0]}): {(x_function(self.bounds[0]), y_function(self.bounds[0]))}'
+                  f'\n second component ending value ({self.bounds[1] + other.bounds[1] - other.bounds[0]}): {(x_function(self.bounds[1] + other.bounds[1] - other.bounds[0]), y_function(self.bounds[1] + other.bounds[1] - other.bounds[0]))}')
             return ParametricObject(x_function, y_function,
                                     [self.bounds[0], self.bounds[1] + other.bounds[1] - other.bounds[0]])
         return ParametricObject(x_function, y_function)
@@ -152,4 +165,3 @@ class Function(ParametricObject):
             function (func): Function to be represented.
         """
         super().__init__(lambda x: x, function)
-

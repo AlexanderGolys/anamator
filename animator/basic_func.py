@@ -287,27 +287,46 @@ class AxisSurface(Surface):
 
         x_axis = objects.ParametricObject(lambda x: x, lambda x: 0)
         y_axis = objects.ParametricObject(lambda x: 0, lambda x: x)
-        self.blit_parametric_object(x_axis, settings)
+        self.blit_parametric_object(x_axis, settings, interval_of_param=self.x_bounds)
         if not x_only:
             self.blit_parametric_object(y_axis, settings, interval_of_param=self.y_bounds)
 
-    def blit_x_scale(self, settings, interval, length):
+    def blit_scale(self, settings, x_interval=None, x_length=None, y_interval=None, y_length=None):
         """
         Blitting scale to the axis.
         Args:
             settings (dict): Standard visual settings.
-            interval (float): Interval between points.
-            length (float): Single line length.
+            x_interval (float, optional): Interval between points on x axis. If None grid on x axis will not be blitted.
+            x_length (float, optional): Single line length on x axis.
+            y_interval (float, optional): Interval between points on y axis. If None grid on y axis will not be blitted.
+            y_length (float, optional): Single line length on y axis.
         """
         debug('blitting scale', short=False)
 
-        n = int((self.x_bounds[1] - self.x_bounds[0]) // interval)
-        graduation = np.linspace(start=self.x_bounds[0]//interval + 1,
-                                 stop=self.x_bounds[1]//interval,
-                                 num=n)
-        lines = [objects.ParametricObject(lambda x: x_point, lambda x: x, [-length, length]) for x_point in graduation]
-        grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
-        self.blit_parametric_object(grid, settings, interval_of_param=(-length, (2*len(graduation) - 1)*length))
+        def make_const(c):
+            return lambda x: c
+
+        if x_interval is not None:
+            n = int((self.x_bounds[1] - self.x_bounds[0]) // x_interval)
+            graduation = np.linspace(start=self.x_bounds[0]//x_interval + 1,
+                                     stop=self.x_bounds[1]//x_interval,
+                                     num=n)
+
+            lines = [objects.ParametricObject(make_const(point), lambda t: t, [-x_length, x_length])
+                     for point in map(float, graduation)]
+            grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
+            self.blit_parametric_object(grid, settings, interval_of_param=(-x_length, (2*len(lines) - 1)*x_length))
+
+        if y_interval is not None:
+            n = int((self.y_bounds[1] - self.y_bounds[0]) // y_interval)
+            graduation = np.linspace(start=self.y_bounds[0] // y_interval + 1,
+                                     stop=self.y_bounds[1] // y_interval,
+                                     num=n)
+
+            lines = [objects.ParametricObject(make_const(point), lambda t: t, [-y_length, y_length])
+                     for point in map(float, graduation)]
+            grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
+            self.blit_parametric_object(grid, settings, interval_of_param=(-y_length, (2 * len(lines) - 1) * y_length))
 
 
 class Frame(Surface):
@@ -343,9 +362,12 @@ class OneAxisFrame(Frame):
         self.blit_surface(self.axis_surface, (self.x_padding, self.y_padding))
 
     def blit_x_grid(self, settings, interval, length):
-        self.axis_surface.blit_x_scale(settings, interval, length)
+        self.axis_surface.blit_scale(settings, x_interval=interval, x_length=length)
 
-    def add_axes(self, settings, x_only=False):
+    def blit_y_grid(self, settings, interval, length):
+        self.axis_surface.blit_scale(settings, y_interval=interval, y_length=length)
+
+    def blit_axes(self, settings, x_only=False):
         self.axis_surface.blit_axes(settings, x_only=x_only)
 
 
@@ -439,11 +461,12 @@ if __name__ == '__main__':
     }
 
     frame.add_axis_surface(x_bounds=(-5, 5), y_bounds=(-5, 5))
-    frame.add_axes(settings_axes)
-    frame.blit_parametric_object(func, settings_function)
+    frame.blit_axes(settings_axes)
     # frame.blit_parametric_object(func2, settings_function2)
 
-    frame.blit_x_grid(settings_grid, interval=1, length=1)
+    frame.blit_x_grid(settings_grid, interval=.5, length=.1)
+    frame.blit_y_grid(settings_grid, interval=.1, length=.1)
+    frame.blit_parametric_object(func, settings_function)
     frame.blit_axis_surface()
     frame.generate_png('test_grid.png')
 
