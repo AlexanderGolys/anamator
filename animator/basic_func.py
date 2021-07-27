@@ -1,5 +1,6 @@
 import itertools
 import functools
+import shutil
 
 import numpy as np
 import scipy.signal
@@ -72,32 +73,6 @@ class Surface:
         img = Image.fromarray(scaled_alpha)
         img.save(filename)
 
-    @staticmethod
-    def parse_color(color):
-        color_dict = {
-            'black': (0, 0, 0, 1),
-            'red': (255, 0, 0, 1),
-            'green': (0, 255, 0, 1),
-            'blue': (0, 0, 255, 1),
-            'white': (255, 255, 255, 1),
-            'gray': (128, 128, 128, 1),
-            'light gray': (200, 200, 200, 1),
-            'dark gray': (60, 60, 60, 1)
-        }
-        if isinstance(color, str) and color[0] != '#':
-            try:
-                return color_dict[color]
-            except IndexError:
-                raise IndexError("Unknown color.")
-
-        if isinstance(color, str) and len(color) == 7:
-            return int(color[1:3], 16), int(color[3:5], 16), int(color[5:], 16), 1
-
-        if isinstance(color, str):
-            return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16), int(color[7:], 16)
-
-        return color
-
 
 class AxisSurface(Surface):
     """
@@ -124,6 +99,10 @@ class AxisSurface(Surface):
         # -(real zero point)*(real_spread)/(abstract spread)
         self.zero_coords = (-x_bounds[0]*self.res[0]/(x_bounds[1]-x_bounds[0]),
                             -y_bounds[0]*self.res[1]/(y_bounds[1]-y_bounds[0]))
+        self.parametric_blitting_queue = []
+        self.filled_blitting_queue = []
+        self.parametric_queue_settings = None
+        self.filled_queue_settings = None
 
     def transform_to_surface_coordinates(self, point):
         """
@@ -181,7 +160,7 @@ class AxisSurface(Surface):
         """
         debug('visual enhancement', short=True)
 
-        color = Surface.parse_color(color)
+        color = objects.ColorParser.parse_color(color)
         target_image = np.zeros(image.shape + (4,))
         if thickness != 1:
             for x, y in itertools.product(range(image.shape[0]), range(image.shape[1])):
@@ -236,7 +215,7 @@ class AxisSurface(Surface):
             result[x, y, 3] = 1-(1-alpha1)*(1-alpha2)
         return result
 
-    def blit_parametric_object(self, obj, settings=None, interval_of_param=None):
+    def blit_parametric_object(self, obj, settings=None, interval_of_param=None, queue=False):
         """
         Blitting ParametricObject to the surface.
 
@@ -254,12 +233,20 @@ class AxisSurface(Surface):
                     * 'color' (tuple of ints): Color in RGBA
             interval_of_param (tuple of numbers, optional): First and last value of parameter to be shown.
                 If not specified, the surfaces x_bound will be used
+            queue (bool, optional): If True object will be added to blitting queue to be blitted later
         """
-        debug('blitting parametric object', short=True)
-
-        tmp_bitmap = np.zeros(self.res)
         if interval_of_param is None:
             interval_of_param = self.x_bounds
+
+        if queue:
+            if obj.bounds is None:
+                obj.add_bounds(interval_of_param)
+            self.parametric_blitting_queue.append(obj)
+            self.parametric_queue_settings = settings
+            return
+
+        debug('blitting parametric object', short=True)
+        tmp_bitmap = np.zeros(self.res)
 
         sampling_rate = 1 if settings is None or 'sampling rate' not in settings.keys() else settings['sampling rate']
         thickness = 1 if settings is None or 'thickness' not in settings.keys() else settings['thickness']
@@ -275,6 +262,54 @@ class AxisSurface(Surface):
 
         processed_bitmap = self._visual_enhancement(tmp_bitmap, thickness, blur, blur_kernel, color)
         self.bitmap = self.merge_images(self.bitmap, processed_bitmap)
+
+    def blit_parametric_queue(self):
+        debug('blitting parametric queue', short=False)
+        if not self.parametric_blitting_queue:
+            return
+        obj = functools.reduce(lambda x, y: x.stack_parametric_objects(y), self.parametric_blitting_queue)
+        self.blit_parametric_object(obj, self.parametric_queue_settings, obj.bounds)
+        self.parametric_blitting_queue = []
+
+    def blit_filled_object(self, filled_obj, settings, interval_of_param=None, queue=False):
+
+        if interval_of_param is None:
+            interval_of_param = self.x_bounds
+        if filled_obj.interval is not None:
+            interval_of_param = filled_obj.interval
+
+        if queue:
+            if filled_obj.interval is None:
+                filled_obj.add_interval(interval_of_param)
+            self.filled_blitting_queue.append(filled_obj)
+            self.filled_queue_settings = settings
+            return
+
+        debug('blitting filled object', short=True)
+
+        function1 = filled_obj.function1
+        function2 = filled_obj.function2
+
+        tmp_bitmap = np.zeros(self.res)
+
+        for t in np.linspace(*interval_of_param, max(self.res)*settings['sampling rate']):
+            x, y1 = self.transform_to_surface_coordinates(function1.get_point(t))
+            x, y2 = self.transform_to_surface_coordinates(function2.get_point(t))
+            for y in range(min(y1, y2), max(y2, y1) + 1):
+                if self.check_if_point_is_valid((x, y)):
+                    tmp_bitmap[x, y] = 1
+        blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
+        processed_bitmap = self._visual_enhancement(tmp_bitmap, settings['thickness'], settings['blur'],
+                                                    blur_kernel, settings['color'])
+        self.bitmap = self.merge_images(self.bitmap, processed_bitmap)
+
+    def blit_filled_queue(self):
+        debug('blitting filled queue', short=False)
+        if not self.filled_blitting_queue:
+            return
+        obj = functools.reduce(lambda x, y: x.stack_filled_objects(y), self.filled_blitting_queue)
+        self.blit_filled_object(obj, self.filled_queue_settings, obj.interval)
+        self.filled_blitting_queue = []
 
     def blit_axes(self, settings, x_only=False):
         """
@@ -323,10 +358,18 @@ class AxisSurface(Surface):
                                      stop=self.y_bounds[1] // y_interval,
                                      num=n)
 
-            lines = [objects.ParametricObject(make_const(point), lambda t: t, [-y_length, y_length])
+            lines = [objects.ParametricObject(lambda t: t, make_const(point), [-y_length, y_length])
                      for point in map(float, graduation)]
             grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
             self.blit_parametric_object(grid, settings, interval_of_param=(-y_length, (2 * len(lines) - 1) * y_length))
+
+    def blit_closed_point(self, coords, radius, settings, queue=False):
+        disk = objects.Disk(coords, radius)
+        self.blit_filled_object(disk, settings, queue=queue)
+
+    def blit_open_point(self, coords, radius, settings, queue=False):
+        circle = objects.Circle(coords, radius)
+        self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
 
 class Frame(Surface):
@@ -336,7 +379,7 @@ class Frame(Surface):
     def __init__(self, res, bg_color, x_padding, y_padding):
         super().__init__(res)
         self.bitmap = np.zeros(res + (4,), dtype='uint8')
-        for channel, color in enumerate(self.parse_color(bg_color)):
+        for channel, color in enumerate(objects.ColorParser.parse_color(bg_color)):
             self.bitmap[:, :, channel].fill(color)
         self.x_padding = x_padding
         self.y_padding = y_padding
@@ -359,6 +402,8 @@ class OneAxisFrame(Frame):
         self.axis_surface.blit_parametric_object(obj, settings)
 
     def blit_axis_surface(self):
+        self.axis_surface.blit_parametric_queue()
+        self.axis_surface.blit_filled_queue()
         self.blit_surface(self.axis_surface, (self.x_padding, self.y_padding))
 
     def blit_x_grid(self, settings, interval, length):
@@ -379,6 +424,7 @@ class Film:
         fps (int): Frames per second.
         frames (list): List of frames.
         resolution (tuple of ints): Film resolution in pixels.
+        frame_counter (int): Using for numbering frames in save_ram mode.
     """
     def __init__(self, fps, resolution):
         """
@@ -388,35 +434,52 @@ class Film:
         self.fps = fps
         self.frames = []
         self.resolution = resolution
+        self.frame_counter = 0
 
-    def add_frame(self, frame):
+    def add_frame(self, frame, save_ram=False):
         """
         Adding one frame at the end of the frame list.
 
         Args:
             frame (Frame): Frame to be added.
+            save_ram (bool): Save frames temporarily on hard disk.
         """
+        if save_ram:
+            with open(f'/tmp/f{self.frame_counter}.npy', 'wb') as file:
+                np.save(file, frame)
+            self.frame_counter += 1
+            return
         self.frames.append(frame)
 
-    def render(self, name='video.mp4'):
+    def render(self, name='video.mp4', save_ram=False):
         """
         Render the movie.
         Args:
             name: Target file.
+            save_ram: Read frames temporarily saved on hard disk.
         """
         debug('rendering', short=False)
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(name, fourcc, self.fps, self.resolution)
-        raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
+
+        if not save_ram:
+            raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
                               [f.bitmap.astype('uint8')[:, :, :-1] for f in self.frames]))
 
-        # print(f'{len(raw_frames)}, {raw_frames[0].shape}')
-        for f in raw_frames:
-            out.write(f)
+            # print(f'{len(raw_frames)}, {raw_frames[0].shape}')
+            for f in raw_frames:
+                out.write(f)
+
+        else:
+            for n in range(self.frame_counter):
+                f = np.fromfile(f'tmp/f{n}.npy').astype('uint8')[:, :, :-1]
+                out.write(f)
+            shutil.rmtree('tmp')
         out.release()
 
 
 if __name__ == '__main__':
+    DEBUG = True
     # surface = AxisSurface(res=(1920, 1080), x_bounds=(-1, 1), y_bounds=(-.5, 2))
     # func = objects.Function(lambda x: x**2)
     # settings = {
@@ -437,8 +500,8 @@ if __name__ == '__main__':
 
     settings_function = {
         'sampling rate': 3,
-        'thickness': 10,
-        'blur': 3,
+        'thickness': 8,
+        'blur': 5,
         'color': 'gray'
     }
     settings_function2 = {
@@ -460,14 +523,19 @@ if __name__ == '__main__':
         'color': 'white'
     }
 
-    frame.add_axis_surface(x_bounds=(-5, 5), y_bounds=(-5, 5))
+    frame.add_axis_surface(x_bounds=(-5.1, 5.1), y_bounds=(-5.1, 5.1))
     frame.blit_axes(settings_axes)
     # frame.blit_parametric_object(func2, settings_function2)
 
-    frame.blit_x_grid(settings_grid, interval=.5, length=.1)
-    frame.blit_y_grid(settings_grid, interval=.1, length=.1)
+    frame.blit_x_grid(settings_grid, interval=.5, length=.05)
+    frame.blit_y_grid(settings_grid, interval=.1, length=.02)
     frame.blit_parametric_object(func, settings_function)
+    # for x in np.linspace(-5, 5, 6):
+    #     frame.axis_surface.blit_closed_point(coords=func.get_point(x), radius=.1, settings=settings_grid, queue=True)
+    # frame.axis_surface.blit_closed_point(coords=(1, 1), radius=.1, settings=settings_grid, queue=False)
+
     frame.blit_axis_surface()
+
     frame.generate_png('test_grid.png')
 
 
