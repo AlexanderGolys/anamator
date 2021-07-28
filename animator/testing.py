@@ -1,6 +1,8 @@
-from animator import basic_func, objects
-import numpy as np
 import math
+
+import numpy as np
+
+from animator import basic_func, objects
 
 
 def basic_test():
@@ -81,10 +83,10 @@ def basic_test():
 
 def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False):
     def generator(t):
-        frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
+        frame = basic_func.OneAxisFrame((1280, 720), 'black', 50, 50)
 
         def make_foo(x):
-            return lambda h: x*h**2
+            return lambda h: math.sin(x+2*h)
 
         func = objects.Function(make_foo(t))
         settings_function = {
@@ -110,9 +112,9 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
 
     animation = basic_func.SingleAnimation(generator, diff)
     settings = {
-        'fps': 2,
+        'fps': 30,
         'resolution': (1280, 720),
-        'duration': 1
+        'duration': 3
     }
     animation.render('test_animation.mp4', settings, save_ram=save_ram, id_=id, start_from=start_from,
                      read_only=read_only)
@@ -120,4 +122,4 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
 
 if __name__ == '__main__':
     # basic_test()
-    test_single_animator_1(True, id='t1__', start_from=0, read_only=False)
+    test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=False)

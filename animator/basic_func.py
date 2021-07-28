@@ -265,14 +265,26 @@ class AxisSurface(Surface):
         self.bitmap = self.merge_images(self.bitmap, processed_bitmap)
 
     def blit_parametric_queue(self):
-        debug('blitting parametric queue', short=False)
+        """
+        Blit parametric objects from parametric queue together at once.
+        """
         if not self.parametric_blitting_queue:
             return
+        debug('blitting parametric queue', short=False)
         obj = functools.reduce(lambda x, y: x.stack_parametric_objects(y), self.parametric_blitting_queue)
         self.blit_parametric_object(obj, self.parametric_queue_settings, obj.bounds)
         self.parametric_blitting_queue = []
 
     def blit_filled_object(self, filled_obj, settings, interval_of_param=None, queue=False):
+        """
+        Blitting filled object.
+
+        Args:
+            filled_obj (objects.FilledObject): Object to be blitted.
+            settings (dict): Blitting settings.
+            interval_of_param (tuple): Parameter boundaries.
+            queue: If True object will be saved in queue instead of blitting instantly.
+        """
 
         if interval_of_param is None:
             interval_of_param = self.x_bounds
@@ -305,9 +317,12 @@ class AxisSurface(Surface):
         self.bitmap = self.merge_images(self.bitmap, processed_bitmap)
 
     def blit_filled_queue(self):
-        debug('blitting filled queue', short=False)
+        """
+            Blit filled objects from filled queue together at once.
+        """
         if not self.filled_blitting_queue:
             return
+        debug('blitting filled queue', short=False)
         obj = functools.reduce(lambda x, y: x.stack_filled_objects(y), self.filled_blitting_queue)
         self.blit_filled_object(obj, self.filled_queue_settings, obj.interval)
         self.filled_blitting_queue = []
@@ -323,9 +338,10 @@ class AxisSurface(Surface):
 
         x_axis = objects.ParametricObject(lambda x: x, lambda x: 0)
         y_axis = objects.ParametricObject(lambda x: 0, lambda x: x)
-        self.blit_parametric_object(x_axis, settings, interval_of_param=self.x_bounds)
+        self.blit_parametric_object(x_axis, settings, interval_of_param=self.x_bounds, queue=True)
         if not x_only:
-            self.blit_parametric_object(y_axis, settings, interval_of_param=self.y_bounds)
+            self.blit_parametric_object(y_axis, settings, interval_of_param=self.y_bounds, queue=True)
+        self.blit_parametric_queue()
 
     def blit_scale(self, settings, x_interval=None, x_length=None, y_interval=None, y_length=None):
         """
@@ -365,14 +381,39 @@ class AxisSurface(Surface):
             self.blit_parametric_object(grid, settings, interval_of_param=(-y_length, (2 * len(lines) - 1) * y_length))
 
     def blit_closed_point(self, coords, radius, settings, queue=False):
+        """
+        Blitting a disk.
+
+        Args:
+            coords (tuple): Center coords in abstract coordinates.
+            radius (float): Radius in abstract coordinates
+            settings (dict): Blitting settings.
+            queue: If True object will be saved in queue instead of blitting instantly.
+        """
         disk = objects.Disk(coords, radius)
         self.blit_filled_object(disk, settings, queue=queue)
 
     def blit_open_point(self, coords, radius, settings, queue=False):
+        """
+        Blitting a circle.
+
+        Args:
+            coords (tuple): Center coords in abstract coordinates.
+            radius (float): Radius in abstract coordinates
+            settings (dict): Blitting settings.
+            queue: If True object will be saved in queue instead of blitting instantly.
+        """
         circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
     def blit_bitmap_object(self, center, img_object, settings):
+        """
+        Blitting bitmap object to the surface if it fits.
+        Args:
+            center (tuple): Center coords in abstract coordinates.
+            img_object (objects.BitmapObject): BitmapObject to be blitted.
+            settings (dict): Blitting settings.
+        """
         blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
         blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
 
@@ -397,10 +438,30 @@ class AxisSurface(Surface):
         self.bitmap = self.merge_images(self.bitmap, tmp_bitmap)
 
     def blit_closed_pixel_point(self, coords, radius, opacity, settings, padding=5):
+        """
+        Blitting a bitmap dot with parameters in pixel scale.
+
+        Args:
+            coords (tuple): Center coords in abstract coordinates.
+            radius (int): Radius in pixels.
+            opacity (float): Opacity. 0: fully transparent, 1: fully not transparent.
+            settings (dict): Blitting settings.
+            padding (tuple): Dot's padding in pixels.
+        """
         disk = objects.BitmapDisk(radius, settings['color'], opacity, padding)
         self.blit_bitmap_object(coords, disk, settings)
 
     def blit_open_pixel_point(self, coords, radius, opacity, settings, padding=5):
+        """
+        Blitting a bitmap circle with parameters in pixel scale.
+
+        Args:
+            coords (tuple): Center coords in abstract coordinates.
+            radius (int): Radius in pixels.
+            opacity (float): Opacity. 0: fully transparent, 1: fully not transparent.
+            settings (dict): Blitting settings.
+            padding (tuple): Dot's padding in pixels.
+        """
         circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
         self.blit_bitmap_object(coords, circle, settings)
 
@@ -428,24 +489,61 @@ class OneAxisFrame(Frame):
         self.axis_surface = None
 
     def add_axis_surface(self, x_bounds, y_bounds):
+        """
+        Setting single AxisSurface.
+        Args:
+            x_bounds (tuple): x axis interval in abstract coordinates.
+            y_bounds (tuple): y axis interval in abstract coordinates.
+        """
         self.axis_surface = AxisSurface((self.res[0]-2*self.x_padding, self.res[1]-2*self.y_padding),
                                         x_bounds, y_bounds)
 
     def blit_parametric_object(self, obj, settings):
+        """
+        Blit parametric object to the axis surface.
+        Args:
+            obj (objects.ParametricObject): Object to be blitted.
+            settings (dict): Blitting settings.
+        """
         self.axis_surface.blit_parametric_object(obj, settings)
 
     def blit_axis_surface(self):
+        """
+        Blitting all queues and axis surface to the frame surface.
+        """
         self.axis_surface.blit_parametric_queue()
         self.axis_surface.blit_filled_queue()
         self.blit_surface(self.axis_surface, (self.x_padding, self.y_padding))
 
     def blit_x_grid(self, settings, interval, length):
+        """
+        Blitting grid on x axis of axis surface.
+
+        Args:
+            settings (dict): Blitting settings.
+            interval (float): Grid interval in abstract coordinates.
+            length (float): Single grid length in abstract coordinates.
+        """
         self.axis_surface.blit_scale(settings, x_interval=interval, x_length=length)
 
     def blit_y_grid(self, settings, interval, length):
+        """
+        Blitting grid on y axis of axis surface.
+
+        Args:
+            settings (dict): Blitting settings.
+            interval (float): Grid interval in abstract coordinates.
+            length (float): Single grid length in abstract coordinates.
+        """
         self.axis_surface.blit_scale(settings, y_interval=interval, y_length=length)
 
     def blit_axes(self, settings, x_only=False):
+        """
+        Blit axes image to the axis surface.
+        Args:
+            settings (dict): Blitting settings.
+            x_only (bool): If True only x axis will be blitted.
+        """
         self.axis_surface.blit_axes(settings, x_only=x_only)
 
 
@@ -480,8 +578,9 @@ class Film:
         """
         if save_ram:
             with open(f'tmp//f{self.id}_{self.frame_counter}.npy', 'wb') as file:
-                np.save(file, frame.bitmap)
+                np.save(file, frame.bitmap.astype("uint8"))
                 debug('File saved', False)
+
             self.frame_counter += 1
             return
         self.frames.append(frame)
@@ -507,9 +606,9 @@ class Film:
 
         else:
             for n in range(self.frame_counter):
-                print(np.fromfile(f'tmp//f{n}.npy').astype('uint8').shape)
-                f = np.fromfile(f'tmp//f{n}.npy').astype('uint8')[:, :, :-1]
-                # np.swapaxes(f, 0, 1)
+                print(np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8').shape)
+                f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, :, :-1]
+                f = np.swapaxes(f, 0, 1)
                 out.write(f)
             # shutil.rmtree('tmp')
         out.release()
@@ -531,11 +630,13 @@ class SingleAnimation:
         fps = settings['fps']
         duration = settings['duration']
         film = Film(fps, settings['resolution'], id=id_)
-        if not read_only:
-            t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
-            for dt in np.arange(start_from/fps, duration, 1/fps):
+        t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
+        for dt in np.arange(start_from/fps, duration, 1/fps):
+            if read_only:
+                film.frame_counter += 1
+            else:
                 film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
-                debug(f'[{round(dt*fps)}/{round(fps*duration)}]', short=False)
+                debug(f'[{round(dt*fps)+1}/{round(fps*duration)}]', short=False)
         film.render(filename, save_ram)
 
 
@@ -545,5 +646,5 @@ if __name__ == '__main__':
     Don't make complicated tests here - use testing.py file.
     
     """
-    pass
+    print('dupa')
 
