@@ -14,6 +14,6 @@
 {
         'fps': int
         'resolution': tuple
-        'duaration': int
+        'duration': int
     }
 ```
