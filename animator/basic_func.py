@@ -509,7 +509,7 @@ class Film:
             for n in range(self.frame_counter):
                 print(np.fromfile(f'tmp//f{n}.npy').astype('uint8').shape)
                 f = np.fromfile(f'tmp//f{n}.npy').astype('uint8')[:, :, :-1]
-                np.swapaxes(f, 0, 1)
+                # np.swapaxes(f, 0, 1)
                 out.write(f)
             # shutil.rmtree('tmp')
         out.release()
@@ -540,6 +540,10 @@ class SingleAnimation:
 
 
 if __name__ == '__main__':
-    with open(f'tmp//fdupa.npy', 'wb') as file:
-        np.save(file, np.array([[1, 2], [2, 3]]))
+    """
+    
+    Don't make complicated tests here - use testing.py file.
+    
+    """
+    pass
 

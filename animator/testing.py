@@ -120,4 +120,4 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
 
 if __name__ == '__main__':
     # basic_test()
-    test_single_animator_1(True, id='t1__', read_only=True)
+    test_single_animator_1(True, id='t1__', start_from=0, read_only=False)
