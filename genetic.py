@@ -202,10 +202,10 @@ def genetic_algorithm(target_function, population_size, unit_length, epochs, sel
 if __name__ == '__main__':
     basic_func.DEBUG = False
     target = lambda x: math.sin(10*x)
-    populations = genetic_algorithm(target, population_size=150, unit_length=20, epochs=600,
+    populations = genetic_algorithm(target, population_size=150, unit_length=20, epochs=200,
                                     selection_type='rank', default_std=5, save_king=True, p_c=.15)
     # print(np.asarray(populations[0]))
     populations = list(map(lambda x: x.census(), populations))
     # print(np.asarray(populations))
     make_film(target, populations, filename='genetic.mp4', fps=5, resolution=(1280, 720), step=1, top_n=5,
-              number_of_frames=50)
+              number_of_frames=50, save_ram=True)

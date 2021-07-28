@@ -1,6 +1,7 @@
 import itertools
 import functools
 import shutil
+import math
 
 import numpy as np
 import scipy.signal
@@ -368,8 +369,40 @@ class AxisSurface(Surface):
         self.blit_filled_object(disk, settings, queue=queue)
 
     def blit_open_point(self, coords, radius, settings, queue=False):
-        circle = objects.Circle(coords, radius)
+        circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
+
+    def blit_bitmap_object(self, center, img_object, settings):
+        blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
+        blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
+
+        debug('blitting bitmap object', short=False)
+        tmp_bitmap = np.zeros(self.res + (4,))
+
+        x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
+        if not self.check_if_point_is_valid((x, y)) or not \
+                self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
+                                             + np.array(img_object.res) // 2):
+            return
+
+        tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
+        if blur_kernel == 'box':
+            kernel = np.zeros((blur, blur))
+            kernel.fill(1/blur**2)
+
+            # TODO: Other kernels
+            if blur != 0:
+                tmp_bitmap[:, :, 3] = scipy.signal.convolve2d(tmp_bitmap[:, :, 3], kernel, mode='same')
+
+        self.bitmap = self.merge_images(self.bitmap, tmp_bitmap)
+
+    def blit_closed_pixel_point(self, coords, radius, opacity, settings, padding=5):
+        disk = objects.BitmapDisk(radius, settings['color'], opacity, padding)
+        self.blit_bitmap_object(coords, disk, settings)
+
+    def blit_open_pixel_point(self, coords, radius, opacity, settings, padding=5):
+        circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
+        self.blit_bitmap_object(coords, circle, settings)
 
 
 class Frame(Surface):
@@ -446,7 +479,8 @@ class Film:
         """
         if save_ram:
             with open(f'/tmp/f{self.frame_counter}.npy', 'wb') as file:
-                np.save(file, frame)
+                np.save(file, frame.bitmap)
+                print('dupa')
             self.frame_counter += 1
             return
         self.frames.append(frame)
@@ -478,6 +512,28 @@ class Film:
         out.release()
 
 
+class SingleAnimation:
+    """
+        Smoothly animate single variable change.
+
+        Attributes:
+            frame_generator (func): Function with argument t returning Frame.
+            differential (func): Function R->R specifying growth rate per second.
+        """
+    def __init__(self, frame_generator, differential):
+        self.frame_generator = frame_generator
+        self.differential = differential
+
+    def render(self, filename, settings, save_ram=False):
+        fps = settings['fps']
+        duration = settings['duration']
+        film = Film(fps, settings['resolution'])
+        t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
+        for dt in np.arange(0, duration, 1/fps):
+            film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
+        film.render(filename, save_ram)
+
+
 if __name__ == '__main__':
     DEBUG = True
     # surface = AxisSurface(res=(1920, 1080), x_bounds=(-1, 1), y_bounds=(-.5, 2))
@@ -495,14 +551,14 @@ if __name__ == '__main__':
     # frame.generate_png('test2.png')
 
     frame = OneAxisFrame((1920, 1080), 'black', 100, 100)
-    func = objects.Function(lambda x: x ** 2)
+    func = objects.Function(lambda x: math.sin(x))
     func2 = objects.Function(lambda x: x ** 3)
 
     settings_function = {
         'sampling rate': 3,
-        'thickness': 8,
-        'blur': 5,
-        'color': 'gray'
+        'thickness': 10,
+        'blur': 3,
+        'color': 'white'
     }
     settings_function2 = {
         'sampling rate': 3,
@@ -522,23 +578,34 @@ if __name__ == '__main__':
         'blur': 2,
         'color': 'white'
     }
-
-    frame.add_axis_surface(x_bounds=(-5.1, 5.1), y_bounds=(-5.1, 5.1))
-    frame.blit_axes(settings_axes)
+    settings_point = {
+        'sampling rate': 1,
+        'thickness': 4,
+        'blur': 2,
+        'color': 'white',
+        'blur kernel': 'none'
+    }
+    settings_point_interior = {
+        'sampling rate': 1,
+        'thickness': 1,
+        'blur': 0,
+        'color': 'black',
+        'blur kernel': 'none'
+    }
+    frame.add_axis_surface(x_bounds=(-5.1, 5.1), y_bounds=(-2.1, 2))
+    frame.blit_axes(settings_axes, x_only=False)
     # frame.blit_parametric_object(func2, settings_function2)
 
-    frame.blit_x_grid(settings_grid, interval=.5, length=.05)
-    frame.blit_y_grid(settings_grid, interval=.1, length=.02)
+    frame.blit_x_grid(settings_grid, interval=.5, length=.02)
+    frame.blit_y_grid(settings_grid, interval=.05, length=.03)
     frame.blit_parametric_object(func, settings_function)
-    # for x in np.linspace(-5, 5, 6):
-    #     frame.axis_surface.blit_closed_point(coords=func.get_point(x), radius=.1, settings=settings_grid, queue=True)
-    # frame.axis_surface.blit_closed_point(coords=(1, 1), radius=.1, settings=settings_grid, queue=False)
+    for x in np.linspace(-5, 5, 10):
+        frame.axis_surface.blit_closed_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
+                                                   settings=settings_point_interior)
+        frame.axis_surface.blit_open_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
+                                                 settings=settings_point)
+    # frame.axis_surface.blit_closed_pixel_point(coords=(1, 1), radius=4, opacity=1, settings=settings_point)
 
     frame.blit_axis_surface()
-
     frame.generate_png('test_grid.png')
-
-
-
-
 
