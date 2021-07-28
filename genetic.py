@@ -52,7 +52,7 @@ def epoch_frame(target_func, approximators_list, generate_png=False, top_n=5):
 
 
 def make_film(target_func, epochs, filename='genetic.mp4', fps=1, resolution=(1280, 720), step=1, top_n=5,
-              number_of_frames=5, save_ram=True):
+              number_of_frames=5, save_ram=True, id=''):
     """
     Generates the video illustrating function approximation by genetic algorithm.
 
@@ -66,11 +66,12 @@ def make_film(target_func, epochs, filename='genetic.mp4', fps=1, resolution=(12
         top_n (int): How many best function should be plotted.
         number_of_frames (int): IF not None, step is to generate specific number of frames
         save_ram (bool): Render in save_ram mode.
+        id (str): Film id.
     """
 
-    video = basic_func.Film(fps, resolution)
+    video = basic_func.Film(fps, resolution, id=id)
     if number_of_frames is not None:
-        step = len(epochs)//number_of_frames + 1
+        step = len(epochs)//number_of_frames
 
     print(f'step: {step}, frames: {len(epochs[::step])}')
     for i, epoch in enumerate(epochs[::step]):
@@ -200,12 +201,12 @@ def genetic_algorithm(target_function, population_size, unit_length, epochs, sel
 
 
 if __name__ == '__main__':
-    basic_func.DEBUG = False
+    basic_func.DEBUG = True
     target = lambda x: math.sin(10*x)
-    populations = genetic_algorithm(target, population_size=150, unit_length=20, epochs=200,
-                                    selection_type='rank', default_std=5, save_king=True, p_c=.15)
+    populations = genetic_algorithm(target, population_size=150, unit_length=10, epochs=100,
+                                    selection_type='rank', default_std=6, save_king=True, p_c=.15)
     # print(np.asarray(populations[0]))
     populations = list(map(lambda x: x.census(), populations))
     # print(np.asarray(populations))
     make_film(target, populations, filename='genetic.mp4', fps=5, resolution=(1280, 720), step=1, top_n=5,
-              number_of_frames=50, save_ram=True)
+              number_of_frames=50, save_ram=True, id='_gn_')

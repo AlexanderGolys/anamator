@@ -459,7 +459,7 @@ class Film:
         resolution (tuple of ints): Film resolution in pixels.
         frame_counter (int): Using for numbering frames in save_ram mode.
     """
-    def __init__(self, fps, resolution):
+    def __init__(self, fps, resolution, id=''):
         """
         Args:
             fps: Frames per second.
@@ -468,6 +468,7 @@ class Film:
         self.frames = []
         self.resolution = resolution
         self.frame_counter = 0
+        self.id = id
 
     def add_frame(self, frame, save_ram=False):
         """
@@ -478,9 +479,9 @@ class Film:
             save_ram (bool): Save frames temporarily on hard disk.
         """
         if save_ram:
-            with open(f'/tmp/f{self.frame_counter}.npy', 'wb') as file:
+            with open(f'tmp//f{self.id}_{self.frame_counter}.npy', 'wb') as file:
                 np.save(file, frame.bitmap)
-                print('dupa')
+                debug('File saved', False)
             self.frame_counter += 1
             return
         self.frames.append(frame)
@@ -506,9 +507,11 @@ class Film:
 
         else:
             for n in range(self.frame_counter):
-                f = np.fromfile(f'tmp/f{n}.npy').astype('uint8')[:, :, :-1]
+                print(np.fromfile(f'tmp//f{n}.npy').astype('uint8').shape)
+                f = np.fromfile(f'tmp//f{n}.npy').astype('uint8')[:, :, :-1]
+                np.swapaxes(f, 0, 1)
                 out.write(f)
-            shutil.rmtree('tmp')
+            # shutil.rmtree('tmp')
         out.release()
 
 
@@ -524,17 +527,19 @@ class SingleAnimation:
         self.frame_generator = frame_generator
         self.differential = differential
 
-    def render(self, filename, settings, save_ram=False):
+    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False):
         fps = settings['fps']
         duration = settings['duration']
-        film = Film(fps, settings['resolution'])
-        t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
-        for dt in np.arange(0, duration, 1/fps):
-            film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
-            debug(f'[{round(dt*fps)}/{round(dt*duration)}]', short=False)
+        film = Film(fps, settings['resolution'], id=id_)
+        if not read_only:
+            t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
+            for dt in np.arange(start_from/fps, duration, 1/fps):
+                film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
+                debug(f'[{round(dt*fps)}/{round(fps*duration)}]', short=False)
         film.render(filename, save_ram)
 
 
 if __name__ == '__main__':
-    pass
+    with open(f'tmp//fdupa.npy', 'wb') as file:
+        np.save(file, np.array([[1, 2], [2, 3]]))
 

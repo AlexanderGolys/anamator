@@ -2,6 +2,7 @@ from animator import basic_func, objects
 import numpy as np
 import math
 
+
 def basic_test():
     basic_func.DEBUG = True
     # surface = AxisSurface(res=(1920, 1080), x_bounds=(-1, 1), y_bounds=(-.5, 2))
@@ -78,7 +79,7 @@ def basic_test():
     frame.generate_png('test_grid.png')
 
 
-def test_single_animator_1():
+def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False):
     def generator(t):
         frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
 
@@ -109,13 +110,14 @@ def test_single_animator_1():
 
     animation = basic_func.SingleAnimation(generator, diff)
     settings = {
-        'fps': 15,
+        'fps': 2,
         'resolution': (1280, 720),
         'duration': 1
     }
-    animation.render('test_animation.mp4', settings, save_ram=False)
+    animation.render('test_animation.mp4', settings, save_ram=save_ram, id_=id, start_from=start_from,
+                     read_only=read_only)
 
 
 if __name__ == '__main__':
     # basic_test()
-    test_single_animator_1()
+    test_single_animator_1(True, id='t1__', read_only=True)
