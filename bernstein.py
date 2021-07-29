@@ -54,12 +54,13 @@ def generate_frame(n, generate_png=False, foo=lambda x: 0 if x == 0 else x*math.
     return frame
 
 
-def render_video(n, foo=lambda x: 0 if x == 0 else x*math.sin(1/x), start=0, filename='xsin_bernstein_hd.mp4'):
+def render_video(n, foo=lambda x: 0 if x == 0 else x*math.sin(1/x), start=0, filename='xsin_bernstein_hd.mp4',
+                 save_ram=True):
     video = basic_func.Film(5, (1280, 720))
     for i in range(start, n):
-        video.add_frame(generate_frame(i, generate_png=False, foo=foo))
+        video.add_frame(generate_frame(i, generate_png=False, foo=foo), save_ram=save_ram)
         print(i)
-    video.render(filename)
+    video.render(filename, save_ram=save_ram)
 
 
 if __name__ == '__main__':

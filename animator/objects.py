@@ -57,7 +57,7 @@ class BitmapObject(Object):
     @abstractmethod
     def __init__(self, image, res):
         super().__init__()
-        self.image = image
+        self.bitmap = image
         self.res = res
 
     def reshape(self, new_size):
@@ -68,9 +68,9 @@ class BitmapObject(Object):
             new_size: target resolution
         """
 
-        img = Image.fromarray(self.image, "RGBA")
+        img = Image.fromarray(self.bitmap, "RGBA")
         img.resize(new_size)
-        self.image = np.array(img)
+        self.bitmap = np.array(img)
         self.res = new_size
 
     @staticmethod
@@ -251,11 +251,11 @@ class Disk(FilledObject):
         super().__init__(foo1, foo2, interval)
 
 
-class Circle(ParametricObject):
-    def __init__(self, center, radius):
+class Ellipse(ParametricObject):
+    def __init__(self, center, r1, r2):
         x0, y0 = center
-        foo1 = lambda t: radius*math.cos(t) + x0
-        foo2 = lambda t: radius*math.sin(t) + y0
+        foo1 = lambda t: r1*math.cos(t) + x0
+        foo2 = lambda t: r2*math.sin(t) + y0
         interval = [0, 2.1*math.pi]
         super().__init__(foo1, foo2, interval)
 
@@ -268,15 +268,23 @@ class BitmapCircle(BitmapObject):
         color = ColorParser.parse_color(color)
         for x, y in itertools.product(range(shape), range(shape)):
             if (radius - thickness)**2 <= (x-center_coord)**2 + (y-center_coord)**2 < radius**2:
-                bitmap[:, :, 0].fill(color[0])
-                bitmap[:, :, 1].fill(color[1])
-                bitmap[:, :, 2].fill(color[2])
-                bitmap[:, :, 3].fill(opacity)
+                bitmap[x, y, 0] = color[0]
+                bitmap[x, y, 1] = color[1]
+                bitmap[x, y, 2] = color[2]
+                bitmap[x, y, 3] = opacity
         super().__init__(bitmap, (shape, shape))
+
+
+class PolygonalChain(ParametricObject):
+    def __init__(self, points):
+        interval = (0, len(points)-1)
+        x_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][0] + (1-(t-math.floor(t)))*points[math.floor(t)+1][0]
+        y_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][1] + (1-(t-math.floor(t)))*points[math.floor(t)+1][1]
+        super().__init__(x_foo, y_foo, interval)
 
 
 class BitmapDisk(BitmapCircle):
     def __init__(self, radius, color, opacity, padding=5):
-        super().__init__(radius, color, 0, opacity, padding)
+        super().__init__(radius, color, radius, opacity, padding)
 
 
