@@ -340,7 +340,7 @@ class AxisSurface(Surface):
         y_axis = objects.ParametricObject(lambda x: 0, lambda x: x)
         self.blit_parametric_object(x_axis, settings, interval_of_param=self.x_bounds, queue=True)
         if not x_only:
-            self.blit_parametric_object(y_axis, settings, interval_of_param=self.y_bounds, queue=True)
+            self.blit_parametric_object(y_axis, settings, interval_of_param=self.y_bounds)
         self.blit_parametric_queue()
 
     def blit_scale(self, settings, x_interval=None, x_length=None, y_interval=None, y_length=None):
@@ -359,9 +359,9 @@ class AxisSurface(Surface):
             return lambda x: c
 
         if x_interval is not None:
-            n = int((self.x_bounds[1] - self.x_bounds[0]) // x_interval)
-            graduation = np.linspace(start=self.x_bounds[0]//x_interval + 1,
-                                     stop=self.x_bounds[1]//x_interval,
+            n = int((self.x_bounds[1] - self.x_bounds[0]) // x_interval) + 1
+            graduation = np.linspace(start=x_interval*math.ceil(self.x_bounds[0]/x_interval),
+                                     stop=x_interval*math.floor(self.x_bounds[1]/x_interval),
                                      num=n)
 
             lines = [objects.ParametricObject(make_const(point), lambda t: t, [-x_length, x_length])
@@ -370,9 +370,9 @@ class AxisSurface(Surface):
             self.blit_parametric_object(grid, settings, interval_of_param=(-x_length, (2*len(lines) - 1)*x_length))
 
         if y_interval is not None:
-            n = int((self.y_bounds[1] - self.y_bounds[0]) // y_interval)
-            graduation = np.linspace(start=self.y_bounds[0] // y_interval + 1,
-                                     stop=self.y_bounds[1] // y_interval,
+            n = int((self.y_bounds[1] - self.y_bounds[0]) // y_interval) + 1
+            graduation = np.linspace(start=y_interval*math.ceil(self.y_bounds[0]/y_interval),
+                                     stop=y_interval*math.floor(self.y_bounds[1]/y_interval),
                                      num=n)
 
             lines = [objects.ParametricObject(lambda t: t, make_const(point), [-y_length, y_length])
@@ -598,7 +598,7 @@ class Film:
 
         if not save_ram:
             raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
-                              [f.bitmap.astype('uint8')[:, :, :-1] for f in self.frames]))
+                              [f.bitmap.astype('uint8')[::-1, :, :-1] for f in self.frames]))
 
             # print(f'{len(raw_frames)}, {raw_frames[0].shape}')
             for f in raw_frames:
@@ -607,7 +607,7 @@ class Film:
         else:
             for n in range(self.frame_counter):
                 print(np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8').shape)
-                f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, :, :-1]
+                f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, ::-1, :-1]
                 f = np.swapaxes(f, 0, 1)
                 out.write(f)
             # shutil.rmtree('tmp')
@@ -638,6 +638,11 @@ class SingleAnimation:
                 film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
                 debug(f'[{round(dt*fps)+1}/{round(fps*duration)}]', short=False)
         film.render(filename, save_ram)
+
+
+class FunctionSequenceAnimation(SingleAnimation):
+    def __init__(self, sequence, differential, frame_generator_from_foo):
+        n = len(sequence)
 
 
 if __name__ == '__main__':

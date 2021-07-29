@@ -1,4 +1,5 @@
 import math
+import os
 
 import numpy as np
 
@@ -67,14 +68,14 @@ def basic_test():
     frame.blit_axes(settings_axes, x_only=False)
     # frame.blit_parametric_object(func2, settings_function2)
 
-    frame.blit_x_grid(settings_grid, interval=.5, length=.02)
-    frame.blit_y_grid(settings_grid, interval=.05, length=.03)
+    # frame.blit_x_grid(settings_grid, interval=.5, length=.02)
+    # frame.blit_y_grid(settings_grid, interval=.05, length=.03)
     frame.blit_parametric_object(func, settings_function)
-    for x in np.linspace(-5, 5, 10):
-        frame.axis_surface.blit_closed_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
-                                                   settings=settings_point_interior)
-        frame.axis_surface.blit_open_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
-                                                 settings=settings_point)
+    # for x in np.linspace(-5, 5, 10):
+    #     frame.axis_surface.blit_closed_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
+    #                                                settings=settings_point_interior)
+    #     frame.axis_surface.blit_open_pixel_point(coords=func.get_point(x), radius=10, opacity=1,
+    #                                              settings=settings_point)
     # frame.axis_surface.blit_closed_pixel_point(coords=(1, 1), radius=4, opacity=1, settings=settings_point)
 
     frame.blit_axis_surface()
@@ -86,7 +87,7 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
         frame = basic_func.OneAxisFrame((1280, 720), 'black', 50, 50)
 
         def make_foo(x):
-            return lambda h: math.sin(x+2*h)
+            return lambda h: math.sin(x+3*h)
 
         func = objects.Function(make_foo(t))
         settings_function = {
@@ -108,11 +109,11 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
         return frame
 
     def diff(t):
-        return t
+        return t*(3-t)
 
     animation = basic_func.SingleAnimation(generator, diff)
     settings = {
-        'fps': 30,
+        'fps': 15,
         'resolution': (1280, 720),
         'duration': 3
     }
@@ -120,6 +121,14 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
                      read_only=read_only)
 
 
+def init():
+    try:
+        os.mkdir('tmp')
+    except FileExistsError:
+        pass
+
+
 if __name__ == '__main__':
-    # basic_test()
-    test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=False)
+    init()
+    basic_test()
+    # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=False)

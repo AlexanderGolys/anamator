@@ -275,6 +275,14 @@ class BitmapCircle(BitmapObject):
         super().__init__(bitmap, (shape, shape))
 
 
+class PolygonalChain(ParametricObject):
+    def __init__(self, points):
+        interval = (0, len(points)-1)
+        x_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][0] + (1-(t-math.floor(t)))*points[math.floor(t)+1][0]
+        y_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][1] + (1-(t-math.floor(t)))*points[math.floor(t)+1][1]
+        super().__init__(x_foo, y_foo, interval)
+
+
 class BitmapDisk(BitmapCircle):
     def __init__(self, radius, color, opacity, padding=5):
         super().__init__(radius, color, radius, opacity, padding)
