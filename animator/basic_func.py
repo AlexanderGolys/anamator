@@ -1,7 +1,7 @@
 import itertools
 import functools
-import shutil
 import math
+import os
 
 import numpy as np
 import scipy.signal
@@ -577,6 +577,11 @@ class Film:
             save_ram (bool): Save frames temporarily on hard disk.
         """
         if save_ram:
+            try:
+                os.mkdir('tmp')
+            except FileExistsError:
+                pass
+
             with open(f'tmp//f{self.id}_{self.frame_counter}.npy', 'wb') as file:
                 np.save(file, frame.bitmap.astype("uint8"))
                 debug('File saved', False)
@@ -626,11 +631,12 @@ class SingleAnimation:
         self.frame_generator = frame_generator
         self.differential = differential
 
-    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False):
+    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False, precision=1000):
         fps = settings['fps']
         duration = settings['duration']
+
         film = Film(fps, settings['resolution'], id=id_)
-        t = lambda h: sum([self.differential(k/fps) for k in range(math.floor(h*fps))])/fps
+        t = lambda h: sum([self.differential(k/(fps*precision)) for k in range(math.floor(h*fps)*precision)])/(fps*precision)
         for dt in np.arange(start_from/fps, duration, 1/fps):
             if read_only:
                 film.frame_counter += 1
@@ -642,8 +648,21 @@ class SingleAnimation:
 
 class FunctionSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_foo):
-        n = len(sequence)
-        frame_generator = lambda t: frame_generator(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x) + (1-t+math.floor(t))*sequence[math.floor(t)+1])(x)
+        frame_generator = lambda t: frame_generator_from_foo(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x)
+                                            + (1-t+math.floor(t))*sequence[min(math.floor(t)+1, len(sequence)-1)](x)) if print(t) is None else 0
+
+        super().__init__(frame_generator, normalize_function(make_periodic(differential)))
+
+
+def normalize_function(foo, interval=(0, 1), precision=100):
+    start, end = interval
+    norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
+    print(norm)
+    return lambda x: foo(x)/norm
+
+
+def make_periodic(foo, t=1):
+    return lambda x: foo(x-x//t*t)
 
 
 if __name__ == '__main__':
