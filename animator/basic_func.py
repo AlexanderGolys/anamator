@@ -598,7 +598,7 @@ class Film:
 
         if not save_ram:
             raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
-                              [f.bitmap.astype('uint8')[::-1, :, :-1] for f in self.frames]))
+                              [f.bitmap.astype('uint8')[:, ::-1, :-1] for f in self.frames]))
 
             # print(f'{len(raw_frames)}, {raw_frames[0].shape}')
             for f in raw_frames:
@@ -643,6 +643,7 @@ class SingleAnimation:
 class FunctionSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_foo):
         n = len(sequence)
+        frame_generator = lambda t: frame_generator(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x) + (1-t+math.floor(t))*sequence[math.floor(t)+1])(x)
 
 
 if __name__ == '__main__':
