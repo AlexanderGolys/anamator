@@ -121,6 +121,40 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
                      read_only=read_only)
 
 
+def test_function_sequence():
+    sequence = [lambda x: x**n for n in range(5)]
+    differential = lambda x: x**2*(1-x)**2
+
+    def generator(foo):
+        frame = basic_func.OneAxisFrame((640, 480), 'black', 10, 10)
+        settings_function = {
+            'sampling rate': 3,
+            'thickness': 10,
+            'blur': 3,
+            'color': 'white'
+        }
+        settings_axes = {
+            'sampling rate': 3,
+            'thickness': 5,
+            'blur': 2,
+            'color': 'white'
+        }
+        func = objects.Function(foo)
+        frame.add_axis_surface(x_bounds=(-5.1, 5.1), y_bounds=(-2.1, 2))
+        frame.blit_axes(settings_axes, x_only=False)
+        frame.blit_parametric_object(func, settings_function)
+        frame.blit_axis_surface()
+        return frame
+
+    animation = basic_func.FunctionSequenceAnimation(sequence, differential, generator)
+    settings = {
+        'fps': 15,
+        'resolution': (640, 480),
+        'duration': 3
+    }
+    animation.render('test_seq.mp4', settings, save_ram=True, id_='seq1')
+
+
 def init():
     try:
         os.mkdir('tmp')
@@ -130,5 +164,6 @@ def init():
 
 if __name__ == '__main__':
     init()
-    basic_test()
+    # basic_test()
+    test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=False)

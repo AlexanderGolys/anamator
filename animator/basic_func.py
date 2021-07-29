@@ -1,7 +1,7 @@
 import itertools
 import functools
-import shutil
 import math
+import os
 
 import numpy as np
 import scipy.signal
@@ -627,6 +627,11 @@ class SingleAnimation:
         self.differential = differential
 
     def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False):
+        try:
+            os.mkdir('tmp')
+        except FileExistsError:
+            pass
+
         fps = settings['fps']
         duration = settings['duration']
         film = Film(fps, settings['resolution'], id=id_)
@@ -642,8 +647,9 @@ class SingleAnimation:
 
 class FunctionSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_foo):
-        n = len(sequence)
-        frame_generator = lambda t: frame_generator(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x) + (1-t+math.floor(t))*sequence[math.floor(t)+1])(x)
+        frame_generator = lambda t: frame_generator_from_foo(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x)
+                                                              + (1-t+math.floor(t))*sequence[math.floor(t)+1](x))
+        super().__init__(frame_generator, differential)
 
 
 if __name__ == '__main__':
