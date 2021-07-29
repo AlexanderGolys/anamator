@@ -122,8 +122,10 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
 
 
 def test_function_sequence():
-    sequence = [lambda x: x**n for n in range(5)]
-    differential = lambda x: x**2*(1-x)**2
+    def make_poly(n):
+        return lambda x: x**(2*n)
+    sequence = [make_poly(n) for n in range(3)]
+    differential = lambda x: (x-1/4)**2*(3/4-x)**2 if abs(x-1/2) < 1/4 else 0
 
     def generator(foo):
         frame = basic_func.OneAxisFrame((640, 480), 'black', 10, 10)
@@ -150,7 +152,7 @@ def test_function_sequence():
     settings = {
         'fps': 15,
         'resolution': (640, 480),
-        'duration': 3
+        'duration': 2
     }
     animation.render('test_seq.mp4', settings, save_ram=True, id_='seq1')
 
