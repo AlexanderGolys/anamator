@@ -406,20 +406,22 @@ class AxisSurface(Surface):
         circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
+    def blit_bitmap_object(self, center, img_object, settings):
+        """
+        Blitting single bitmap object, alias for blit_distinct_bitmap_objects with only one object in a list.
+        """
+        self.blit_distinct_bitmap_objects([center], [img_object], settings)
+
     def blit_distinct_bitmap_objects(self, centers, img_objects, settings):
         """
         Blitting bitmap objects to the surface if it fits.
         When objects are not distinct, their alpha channel wil be ignored.
 
         Args:
-            centers (list or tuple): List of center coords or single tuple of coordinates in abstract coordinates.
-            img_objects (list or objects.BitmapObject): List of BitmapObjects or single object to be blitted.
+            centers (list or tuple): List of center coords in abstract coordinates.
+            img_objects (list or objects.BitmapObject): List of BitmapObjects to be blitted.
             settings (dict): Blitting settings.
         """
-
-        if not isinstance(img_objects, list):
-            img_objects = [img_objects]
-            centers = [centers]
 
         blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
         blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
