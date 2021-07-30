@@ -406,27 +406,36 @@ class AxisSurface(Surface):
         circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
-    def blit_bitmap_object(self, center, img_object, settings):
+    def blit_distinct_bitmap_objects(self, centers, img_objects, settings):
         """
-        Blitting bitmap object to the surface if it fits.
+        Blitting bitmap objects to the surface if it fits.
+        When objects are not distinct, their alpha channel wil be ignored.
+
         Args:
-            center (tuple): Center coords in abstract coordinates.
-            img_object (objects.BitmapObject): BitmapObject to be blitted.
+            centers (list or tuple): List of center coords or single tuple of coordinates in abstract coordinates.
+            img_objects (list or objects.BitmapObject): List of BitmapObjects or single object to be blitted.
             settings (dict): Blitting settings.
         """
+
+        if not isinstance(img_objects, list):
+            img_objects = [img_objects]
+            centers = [centers]
+
         blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
         blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
 
         debug('blitting bitmap object', short=False)
         tmp_bitmap = np.zeros(self.res + (4,))
 
-        x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
-        if not self.check_if_point_is_valid((x, y)) or not \
-                self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
-                                             + np.array(img_object.res) // 2):
-            return
+        for img_object, center in zip(img_objects, centers):
+            x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
+            if not self.check_if_point_is_valid((x, y)) or not \
+                    self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
+                                                 + np.array(img_object.res) // 2):
+                continue
 
-        tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
+            tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
+
         if blur_kernel == 'box':
             kernel = np.zeros((blur, blur))
             kernel.fill(1/blur**2)
@@ -449,7 +458,7 @@ class AxisSurface(Surface):
             padding (tuple): Dot's padding in pixels.
         """
         disk = objects.BitmapDisk(radius, settings['color'], opacity, padding)
-        self.blit_bitmap_object(coords, disk, settings)
+        self.blit_distinct_bitmap_objects(coords, disk, settings)
 
     def blit_open_pixel_point(self, coords, radius, opacity, settings, padding=5):
         """
@@ -463,7 +472,7 @@ class AxisSurface(Surface):
             padding (tuple): Dot's padding in pixels.
         """
         circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
-        self.blit_bitmap_object(coords, circle, settings)
+        self.blit_distinct_bitmap_objects(coords, circle, settings)
 
 
 class Frame(Surface):
@@ -648,8 +657,8 @@ class SingleAnimation:
 
 class FunctionSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_foo):
-        frame_generator = lambda t: frame_generator_from_foo(lambda x: (t-math.floor(t))*sequence[math.floor(t)](x)
-                                            + (1-t+math.floor(t))*sequence[min(math.floor(t)+1, len(sequence)-1)](x)) if print(t) is None else 0
+        frame_generator = lambda t: frame_generator_from_foo(lambda x: (1-t+math.floor(t))*sequence[math.floor(t)](x)
+                                            + (t-math.floor(t))*sequence[min(math.floor(t)+1, len(sequence)-1)](x))
 
         super().__init__(frame_generator, normalize_function(make_periodic(differential)))
 

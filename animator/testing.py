@@ -92,13 +92,13 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
         func = objects.Function(make_foo(t))
         settings_function = {
             'sampling rate': 3,
-            'thickness': 10,
+            'thickness': 5,
             'blur': 3,
             'color': 'white'
         }
         settings_axes = {
             'sampling rate': 3,
-            'thickness': 5,
+            'thickness': 3,
             'blur': 2,
             'color': 'white'
         }
@@ -124,8 +124,9 @@ def test_single_animator_1(save_ram=False, id='a', start_from=0, read_only=False
 def test_function_sequence():
     def make_poly(n):
         return lambda x: x**(2*n)
-    sequence = [make_poly(n) for n in range(3)]
-    differential = lambda x: (x-1/4)**2*(3/4-x)**2 if abs(x-1/2) < 1/4 else 0
+
+    sequence = [lambda x: x**2, lambda x: 3/2*x**2+1/4, lambda x: 2*x**2 + 1/2, lambda x: 5/2*x**2/3]
+    differential = lambda x: (x-3/8)**2*(5/8-x)**2 if abs(x-1/2) < 1/8 else 0
 
     def generator(foo):
         frame = basic_func.OneAxisFrame((640, 480), 'black', 10, 10)
@@ -150,9 +151,9 @@ def test_function_sequence():
 
     animation = basic_func.FunctionSequenceAnimation(sequence, differential, generator)
     settings = {
-        'fps': 15,
+        'fps': 30,
         'resolution': (640, 480),
-        'duration': 2
+        'duration': 3
     }
     animation.render('test_seq.mp4', settings, save_ram=True, id_='seq1')
 

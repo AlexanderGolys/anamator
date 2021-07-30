@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import math
 import os
@@ -152,6 +154,7 @@ class Population:
         self.society = society if society is not None else [Approximant(unit_length, default_std=default_std) for _ in range(size)]
         self.target_function = target_function
         self.metric = metric
+        self.default_std = default_std
 
     def group_sex(self, selection_type='proportional', save_king=True):
         self.society.sort(key=lambda x: x.fitness(self.target_function, norm=self.metric), reverse=True)
@@ -204,11 +207,30 @@ class Population:
     def __str__(self):
         return '\n'.join(map(str, self.society))
 
+    def change_unit_length(self, n):
+        self.unit_length = n
+        for guy in self.society:
+            values = np.random.normal(0, self.default_std, (n,))
+            std = np.abs(np.random.normal(0, self.default_std, (n,)))
+            values[:guy.values.shape[0]] = guy.values
+            std[:guy.std.shape[0]] = guy.std
+            guy.values = values
+            guy.std = std
+            guy.length = n
+
+
+    def add_new(self, n):
+        self.society[-n:] = [Approximant(self.unit_length, default_std=self.default_std) for _ in range(n)]
+
 
 def genetic_algorithm(target_function, population_size, unit_length, epochs, selection_type='rank', default_std=1,
-                      save_king=True, p_c=.1, metric='int'):
-    populations = [Population(population_size, unit_length, target_function, default_std=default_std, p_c=p_c,
-                              metric=metric)]
+                      save_king=True, p_c=.1, metric='int', starting_population=None):
+    if starting_population is None:
+        populations = [Population(population_size, unit_length, target_function, default_std=default_std, p_c=p_c,
+                                  metric=metric)]
+    else:
+        populations = [starting_population]
+
     for i in range(epochs):
         populations.append(populations[-1].group_sex(selection_type=selection_type, save_king=save_king))
         print(f'{i}: {populations[-1].get_best_fitness()}')
@@ -278,22 +300,39 @@ def generate_curve(pop_size, unit_len, epochs, selection, std, pc, metric, inver
         learning_curve(populations_, filename=filename, inverse=inverse, metric=metric)
 
 
+def sequential(target_function, deg, population_size=100, epochs=200,
+               selection_type='rank', default_std=4, save_king=True, p_c=.1, metric='sup', start=5, add_new=50):
+    print(f'deg: {start}')
+    pop = genetic_algorithm(target_function, population_size, start, epochs, selection_type, default_std, save_king,
+                                  p_c, metric)
+    for n in range(start+1, deg+1):
+        print(f'deg: {n}')
+        new_start = copy.copy(pop[-1])
+        new_start.change_unit_length(n)
+        new_start.add_new(add_new)
+        pop += genetic_algorithm(target_function, population_size, n, epochs, selection_type, default_std, save_king,
+                                 p_c, metric, starting_population=new_start)
+    return pop
+
+
+
+
 if __name__ == '__main__':
     # basic_func.DEBUG = True
     # init()
 
-    generate_curve(pop_size=50, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=100, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=200, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=350, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=500, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
+    # generate_curve(pop_size=50, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
+    # generate_curve(pop_size=100, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
+    # generate_curve(pop_size=200, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
+    # generate_curve(pop_size=350, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
+    # generate_curve(pop_size=500, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
 
     target = lambda x: math.sin(10*x)
-    populations_ = genetic_algorithm(target, population_size=100, unit_length=15, epochs=200,
-                                     selection_type='rank', default_std=4, save_king=True, p_c=.1, metric='sup')
-    # learning_curve(populations_, filename='lc_sup_l10.png')
+    populations_ = sequential(target, population_size=100, deg=20, epochs=100,
+                                     selection_type='rank', default_std=4, save_king=True, p_c=.35, metric='int', start=1, add_new=50)
+    learning_curve(populations_, filename='lc_sup_l10.png', inverse=True)
     populations_ = list(map(lambda x: x.census(), populations_))
-    make_film(target, populations_, filename='sup_genetic_l15.mp4', fps=10, resolution=(1280, 720), step=1, top_n=5,
-              number_of_frames=80, save_ram=True, id='_gn3_', read_only=False)
+    make_film(target, populations_, filename='sup_genetic_l15.mp4', fps=15, resolution=(1280, 720), step=1, top_n=5,
+              number_of_frames=150, save_ram=True, id='_gn3_', read_only=False)
 
 
