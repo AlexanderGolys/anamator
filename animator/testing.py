@@ -158,6 +158,30 @@ def test_function_sequence():
     animation.render('test_seq.mp4', settings, save_ram=True, id_='seq1')
 
 
+def testing_dots():
+    frame = basic_func.OneAxisFrame((1920, 1080), 'black', 10, 10)
+    settings_function = {
+        'blur': 4,
+        'blur kernel': 'box'
+    }
+    settings_axes = {
+        'sampling rate': 3,
+        'thickness': 5,
+        'blur': 2,
+        'color': 'white'
+    }
+    frame.add_axis_surface(x_bounds=(-5.1, 5.1), y_bounds=(-5.1, 5.1))
+    frame.blit_axes(settings_axes, x_only=False)
+    dot1 = objects.BitmapDisk(14, 'white', 1, 5)
+    dot2 = objects.BitmapDisk(16, 'gray', .8, 5)
+    dot3 = objects.BitmapDisk(30, 'red', 1, 5)
+    dot4 = objects.BitmapDisk(17, 'green', .5, 5)
+    centers = [(0, 1), (1, 2), (3, 4), (-1, -4)]
+    frame.axis_surface.blit_distinct_bitmap_objects(centers, [dot1, dot2, dot3, dot4], settings_function)
+    frame.blit_axis_surface()
+    frame.generate_png('test_dots.png')
+
+
 def init():
     try:
         os.mkdir('tmp')
@@ -168,5 +192,6 @@ def init():
 if __name__ == '__main__':
     init()
     # basic_test()
-    test_function_sequence()
+    # test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=False)
+    testing_dots()

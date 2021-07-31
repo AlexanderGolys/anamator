@@ -622,11 +622,12 @@ class Film:
 
         else:
             for n in range(self.frame_counter):
-                print(np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8').shape)
+
                 f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, ::-1, :-1]
                 f = np.swapaxes(f, 0, 1)
                 out.write(f)
             # shutil.rmtree('tmp')
+        print(f'saved to {name}')
         out.release()
 
 

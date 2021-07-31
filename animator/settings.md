@@ -1,4 +1,4 @@
-### Blitting settings
+### Blitting parametric settings
 ```
 {
         'sampling rate': int
@@ -8,6 +8,15 @@
         'blur kernel': str
     }
 ```
+
+### Blitting bitmap settings
+```
+{
+        'blur': int
+        'blur kernel': str
+    }
+```
+
 
 ### Render settings
 ```

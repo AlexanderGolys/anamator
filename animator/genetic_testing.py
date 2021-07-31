@@ -14,16 +14,13 @@ if __name__ == '__main__':
     #           number_of_frames=8, save_ram=True, id='_gndiv_', read_only=False)
     # generate_curve(pop_size=100, unit_len=15, epochs=200, selection='rank', std=4, pc=.1, metric='int', inverse=True,
     #                filename='test.png')
-    generate_curve(pop_size=50, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=100, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=200, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=350, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
-    generate_curve(pop_size=500, unit_len=15, epochs=1000, selection='rank', std=5, pc=.5, metric='sup', inverse=True)
 
-    target = lambda x: math.sin(10*x)
-    populations_ = genetic_algorithm(target, population_size=500, unit_length=15, epochs=500,
-                                     selection_type='rank', default_std=8, save_king=True, p_c=.15, metric='int')
-    learning_curve(populations_, filename='lc_int_op.png')
+    target = lambda x: 5*math.sin(10*x)*math.exp(x/3)
+    # target = lambda x: math.sin(10 * x)
+
+    populations_ = genetic_algorithm(target, population_size=100, unit_length=11, epochs=1000,
+                                      selection_type='rank', default_std=5, save_king=True, p_c=.65, metric='int')
+    learning_curve(populations_, filename='symmetric_big_11.png', inverse=True)
     populations_ = list(map(lambda x: x.census(), populations_))
-    make_film(target, populations_, filename='int_genetic_op.mp4', fps=15, resolution=(1280, 720), step=1, top_n=5,
-              number_of_frames=250, save_ram=True, id='_gnop_', read_only=False)
+    make_film(target, populations_, filename='symmetric_big_11.mp4', fps=5, resolution=(1280, 720), step=1, top_n=5,
+              number_of_frames=60, save_ram=True, id='_sym_', read_only=False)
