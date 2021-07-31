@@ -2,6 +2,7 @@ import itertools
 import functools
 import math
 import os
+import copy
 
 import numpy as np
 import scipy.signal
@@ -475,6 +476,48 @@ class AxisSurface(Surface):
         """
         circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
         self.blit_distinct_bitmap_objects(coords, circle, settings)
+
+    def blit_dashed_curve(self, obj, k, m=50, settings=None, interval_of_param=None, queue=False):
+
+        debug('calculating dashed curve', short=False)
+
+        # m = max(self.res)*settings['sampling rate']
+
+        if interval_of_param is None:
+            interval_of_param = self.x_bounds
+
+        print(interval_of_param)
+
+        def derivative(x, function, m):
+            return (function(x + 1 / m) - function(x)) / (1 / m)
+
+        def integral(function, interval, m):
+            return sum([function(interval[0] + k * (interval[1] - interval[0]) / m) for k in range(m)]) * (
+                        interval[1] - interval[0]) / m
+
+        def arc_length(function_y, interval, m, function_x=lambda x: x):
+            g = lambda x: math.sqrt((derivative(x, function_y, m)) ** 2 + (derivative(x, function_x, m)) ** 2)
+            return integral(g, interval, m)
+
+        piece_of_arc = arc_length(obj.y_function, interval_of_param, m, obj.x_function) / k
+        # print(f'piece of arc: {piece_of_arc}')
+        partition = [interval_of_param[0]]
+        for i in range(k):
+            print(f'now {i}')
+            for j in range(1, m + 1):
+                if arc_length(obj.y_function, (partition[i], partition[i] + j*(interval_of_param[1]-interval_of_param[0]) / m), m, obj.x_function) >= piece_of_arc:
+                    # print(arc_length(function_y, (partition[i], partition[i]+j/m), m, function_x))
+                    print(partition[i]+j/m)
+                    partition.append(partition[i] + j / m)
+                    break
+
+        more_sampling = [(partition[i], (partition[i + 1] + partition[i]) / 2) for i in range(len(partition) - 1)]
+
+        for interval in more_sampling:
+            one_dash = copy.copy(obj)
+            one_dash.add_bounds(interval)
+            self.blit_parametric_object(one_dash, settings, queue=True)
+        self.blit_parametric_queue()
 
 
 class Frame(Surface):
