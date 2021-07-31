@@ -287,4 +287,3 @@ class BitmapDisk(BitmapCircle):
     def __init__(self, radius, color, opacity, padding=5):
         super().__init__(radius, color, radius, opacity, padding)
 
-
