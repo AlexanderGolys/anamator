@@ -1,8 +1,10 @@
 import math
 import warnings
 import itertools
+import copy
 
 import numpy as np
+import deprecation
 
 from abc import ABC, abstractmethod
 from PIL import Image
@@ -19,7 +21,13 @@ class ColorParser:
             'white': (255, 255, 255, 1),
             'gray': (128, 128, 128, 1),
             'light gray': (200, 200, 200, 1),
-            'dark gray': (60, 60, 60, 1)
+            'dark gray': (60, 60, 60, 1),
+            'dark blue 1': (21, 76, 121, 1),
+            'dark blue 2': (6, 57, 112, 1),
+            'purple 1': (65, 64, 115, 1),
+            'purple 2': (76, 57, 87, 1),
+            'green 1': (121, 180, 115, 1),
+            'green 2': (112, 163, 127, 1)
         }
         if isinstance(color, str) and color[0] != '#':
             try:
@@ -34,6 +42,81 @@ class ColorParser:
             return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16), int(color[7:], 16)
 
         return color
+
+
+class PredefinedSettings:
+    @staticmethod
+    def fhd_render_24fps(duration):
+        return {
+            'fps': 24,
+            'resolution': (1920, 1080),
+            'duration': duration
+        }
+
+    @staticmethod
+    def hd_render_24fps(duration):
+        return {
+            'fps': 24,
+            'resolution': (1280, 720),
+            'duration': duration
+        }
+
+    t5b2white = {
+            'sampling rate': 3,
+            'thickness': 5,
+            'blur': 2,
+            'color': 'white'
+        }
+
+    t5b2gray = {
+            'sampling rate': 3,
+            'thickness': 5,
+            'blur': 2,
+            'color': 'gray'
+        }
+
+    t0b0white = {
+            'sampling rate': 3,
+            'thickness': 0,
+            'blur': 0,
+            'color': 'white'
+        }
+
+    t10b4white = {
+            'sampling rate': 3,
+            'thickness': 10,
+            'blur': 4,
+            'color': 'white'
+        }
+
+    t2b0white = {
+            'sampling rate': 3,
+            'thickness': 2,
+            'blur': 0,
+            'color': 'white'
+        }
+    t2b0gray = {
+            'sampling rate': 3,
+            'thickness': 2,
+            'blur': 0,
+            'color': 'gray'
+        }
+    t1b0white = {
+            'sampling rate': 3,
+            'thickness': 1,
+            'blur': 0,
+            'color': 'white'
+        }
+    t1b0gray = {
+            'sampling rate': 3,
+            'thickness': 1,
+            'blur': 0,
+            'color': 'gray'
+        }
+
+    slow_differential = lambda x: (x - 1/4) ** 2 * (3/4 - x) ** 2 if abs(x - 1 / 2) < 1/4 else 0
+
+    fast_differential = lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0
 
 
 class Object(ABC):
@@ -193,17 +276,50 @@ class ParametricObject(Object):
                                     [self.bounds[0], self.bounds[1] + other.bounds[1] - other.bounds[0]])
         return ParametricObject(x_function, y_function)
 
+    def shift_interval(self):
+        if self.bounds is None:
+            return
+        x_function_copy = copy.copy(self.x_function)
+        y_function_copy = copy.copy(self.y_function)
+        b0 = self.bounds[0]
+        self.x_function = lambda t: x_function_copy(t+b0)
+        self.y_function = lambda t: y_function_copy(t+b0)
+        self.bounds = [0, self.bounds[1]-self.bounds[0]]
+
 
 class Function(ParametricObject):
-    def __init__(self, function):
+    def __init__(self, function, const=None):
         """
         Args:
             function (func): Function to be represented.
+            const (float, optional): If not None, function parameter will be ignored and constant function will be
+                created out of value of const. Where creating constant function, this way is preferred as it
+                optimize implementation of some methods operating on Function objects.
         """
-        super().__init__(lambda x: x, function)
+        def create_const(c):
+            return lambda x: c
+
+        self.const = None
+
+        if const is None:
+            super().__init__(lambda x: x, function)
+        else:
+            super().__init__(lambda x: x, create_const(const))
 
     def __call__(self, *args, **kwargs):
+        if self.const is not None:
+            return self.const
         return self.y_function(*args, **kwargs)
+
+    def sup(self, interval, precision=50):
+        if self.const is not None:
+            return self.const
+        return max([self(x) for x in np.linspace(*interval, precision)])
+
+    def inf(self, interval, precision=50):
+        if self.const is not None:
+            return self.const
+        return min([self(x) for x in np.linspace(*interval, precision)])
 
 
 class FilledObject(Object):
@@ -212,20 +328,25 @@ class FilledObject(Object):
         Object bounded by two functions that can be filled
 
         Args:
-            function1: First boundary function.
-            function2: Second boundary function.
+            function1 (Function): First boundary function.
+            function2 (Function): Second boundary function.
         """
         super().__init__()
         self.function1 = function1
         self.function2 = function2
+        self.function1.add_bounds(interval)
+        self.function2.add_bounds(interval)
         self.interval = interval
         if interval is None:
             raise ValueError('Interval is None')
 
+    @deprecation.deprecated()
     def add_interval(self, interval):
         if interval is None:
             raise ValueError('Interval is None')
         self.interval = interval
+        self.function1.add_bounds(interval)
+        self.function2.add_bounds(interval)
 
     def stack_filled_objects(self, other):
         if self.interval is None:
@@ -236,6 +357,16 @@ class FilledObject(Object):
         new_foo1 = self.function1.stack_parametric_objects(other.function1)
         new_foo2 = self.function2.stack_parametric_objects(other.function2)
         return FilledObject(new_foo1, new_foo2, new_foo1.bounds)
+
+    def shift_interval(self):
+        if self.interval is None:
+            return
+        self.function1.shift_interval()
+        self.function2.shift_interval()
+        self.interval = [0, self.interval[1]-self.interval[0]]
+
+    def is_rec(self):
+        return self.function1.const is not None and self.function2.const is not None
 
 
 class Disk(FilledObject):

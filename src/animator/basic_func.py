@@ -10,7 +10,7 @@ import cv2
 
 from PIL import Image
 
-from animator import objects
+from . import objects
 
 
 DEBUG = True
@@ -164,22 +164,22 @@ class AxisSurface(Surface):
 
         color = objects.ColorParser.parse_color(color)
         target_image = np.zeros(image.shape + (4,))
-        if thickness != 1:
-            for x, y in itertools.product(range(image.shape[0]), range(image.shape[1])):
-                if image[x, y] == 1:
-                    for xi, yi in itertools.product(range(x-thickness, x+thickness+1), range(y-thickness, y+thickness+1)):
-                        try:
-                            if (x-xi)**2 + (y-yi)**2 <= thickness:
-                                target_image[xi, yi, :] = np.asarray(color)
-                        except IndexError:
-                            pass
+        # if thickness != 1:
+        for x, y in itertools.product(range(image.shape[0]), range(image.shape[1])):
+            if image[x, y] == 1:
+                for xi, yi in itertools.product(range(x-thickness, x+thickness+1), range(y-thickness, y+thickness+1)):
+                    try:
+                        if (x-xi)**2 + (y-yi)**2 <= thickness and xi >= 0 and yi >= 0:
+                            target_image[xi, yi, :] = np.asarray(color)
+                    except IndexError:
+                        pass
 
         target_image[:, :, 0].fill(color[0])
         target_image[:, :, 1].fill(color[1])
         target_image[:, :, 2].fill(color[2])
 
         kernel = np.array([[1]])
-        if blur_kernel == 'box':
+        if blur_kernel == 'box' and blur != 0:
             kernel = np.zeros((blur, blur))
             kernel.fill(1/blur**2)
 
@@ -271,7 +271,12 @@ class AxisSurface(Surface):
         """
         if not self.parametric_blitting_queue:
             return
-        debug('blitting parametric queue', short=False)
+        if self.res[0] <= 640:
+            debug('bulletting parametric queue', short=False)
+        else:
+            debug('blitting parametric queue', short=False)
+        for obj in self.parametric_blitting_queue:
+            obj.shift_interval()
         obj = functools.reduce(lambda x, y: x.stack_parametric_objects(y), self.parametric_blitting_queue)
         self.blit_parametric_object(obj, self.parametric_queue_settings, obj.bounds)
         self.parametric_blitting_queue = []
@@ -294,7 +299,8 @@ class AxisSurface(Surface):
 
         if queue:
             if filled_obj.interval is None:
-                filled_obj.add_interval(interval_of_param)
+                raise ValueError('interval is None')
+                # filled_obj.add_interval(interval_of_param)
             self.filled_blitting_queue.append(filled_obj)
             self.filled_queue_settings = settings
             return
@@ -323,6 +329,8 @@ class AxisSurface(Surface):
         """
         if not self.filled_blitting_queue:
             return
+        for obj in self.filled_blitting_queue:
+            obj.shift_interval()
         debug('blitting filled queue', short=False)
         obj = functools.reduce(lambda x, y: x.stack_filled_objects(y), self.filled_blitting_queue)
         self.blit_filled_object(obj, self.filled_queue_settings, obj.interval)
@@ -477,16 +485,17 @@ class AxisSurface(Surface):
         circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
         self.blit_distinct_bitmap_objects(coords, circle, settings)
 
-    def blit_dashed_curve(self, obj, k, m=50, settings=None, interval_of_param=None, queue=False):
+    def blit_dashed_curve(self, obj, number_of_dashes, precision=50, settings=None, interval_of_param=None, queue=False):
 
-        debug('calculating dashed curve', short=False)
+        debug('calculating dashed curve', short=True)
+        number_of_dashes = 2*number_of_dashes - 1
 
         # m = max(self.res)*settings['sampling rate']
 
         if interval_of_param is None:
             interval_of_param = self.x_bounds
 
-        print(interval_of_param)
+        # print(interval_of_param)
 
         def derivative(x, function, m):
             return (function(x + 1 / m) - function(x)) / (1 / m)
@@ -499,25 +508,29 @@ class AxisSurface(Surface):
             g = lambda x: math.sqrt((derivative(x, function_y, m)) ** 2 + (derivative(x, function_x, m)) ** 2)
             return integral(g, interval, m)
 
-        piece_of_arc = arc_length(obj.y_function, interval_of_param, m, obj.x_function) / k
+        piece_of_arc = arc_length(obj.y_function, interval_of_param, precision, obj.x_function) / number_of_dashes
         # print(f'piece of arc: {piece_of_arc}')
         partition = [interval_of_param[0]]
-        for i in range(k):
-            print(f'now {i}')
-            for j in range(1, m + 1):
-                if arc_length(obj.y_function, (partition[i], partition[i] + j*(interval_of_param[1]-interval_of_param[0]) / m), m, obj.x_function) >= piece_of_arc:
+        for part_number in range(number_of_dashes):
+            # print(f'now {part_number}')
+            for j in range(1, precision + 1):
+                if arc_length(obj.y_function,
+                              (partition[part_number],
+                               partition[part_number] + j * (interval_of_param[1]-interval_of_param[0]) / precision),
+                              precision, obj.x_function) >= piece_of_arc:
                     # print(arc_length(function_y, (partition[i], partition[i]+j/m), m, function_x))
-                    print(partition[i]+j/m)
-                    partition.append(partition[i] + j / m)
+                    # print(partition[part_number]+j/m)
+                    partition.append(partition[part_number] + j*(interval_of_param[1]-interval_of_param[0]) / precision)
                     break
 
-        more_sampling = [(partition[i], (partition[i + 1] + partition[i]) / 2) for i in range(len(partition) - 1)]
-
-        for interval in more_sampling:
+        # more_sampling = [(partition[i], (partition[i + 1] + partition[i]) / 2) for i in range(len(partition) - 1)]
+        for interval in zip(partition[::2], partition[1:][::2]):
             one_dash = copy.copy(obj)
             one_dash.add_bounds(interval)
-            self.blit_parametric_object(one_dash, settings, queue=True)
-        self.blit_parametric_queue()
+            self.blit_parametric_object(one_dash, settings, interval_of_param=interval, queue=True)
+
+        if not queue:
+            self.blit_parametric_queue()
 
 
 class Frame(Surface):
@@ -657,7 +670,7 @@ class Film:
 
         if not save_ram:
             raw_frames = list(map(lambda x: np.swapaxes(x, 0, 1),
-                              [f.bitmap.astype('uint8')[:, ::-1, :-1] for f in self.frames]))
+                              [f.bitmap.astype('uint8')[:, ::-1, :-1][:, :, ::-1] for f in self.frames]))
 
             # print(f'{len(raw_frames)}, {raw_frames[0].shape}')
             for f in raw_frames:
@@ -666,7 +679,7 @@ class Film:
         else:
             for n in range(self.frame_counter):
 
-                f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, ::-1, :-1]
+                f = np.load(f'tmp//f{self.id}_{n}.npy').astype('uint8')[:, ::-1, :-1][:, :, ::-1]
                 f = np.swapaxes(f, 0, 1)
                 out.write(f)
             # shutil.rmtree('tmp')
@@ -686,19 +699,30 @@ class SingleAnimation:
         self.frame_generator = frame_generator
         self.differential = differential
 
-    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False, precision=1000):
-        fps = settings['fps']
+    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False,
+               precision=1000, speed=1):
         duration = settings['duration']
+        film = Film(settings['fps'], settings['resolution'], id=id_)
+        fps = settings['fps']//speed
 
-        film = Film(fps, settings['resolution'], id=id_)
         t = lambda h: sum([self.differential(k/(fps*precision)) for k in range(math.floor(h*fps)*precision)])/(fps*precision)
         for dt in np.arange(start_from/fps, duration, 1/fps):
             if read_only:
                 film.frame_counter += 1
             else:
                 film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
-                debug(f'[{round(dt*fps)+1}/{round(fps*duration)}]', short=False)
+                debug(f'[{round(dt*fps)+1}/{round(fps*duration)} ({int(100*(round(dt*fps)+1)/(fps*duration))}%)]', short=False)
         film.render(filename, save_ram)
+
+    @staticmethod
+    def blend_lists(lists, t):
+        return list((1 - t + math.floor(t)) * np.array(lists[math.floor(t)])
+                     + (t - math.floor(t)) * np.array(lists[min(math.floor(t) + 1, len(lists) - 1)]))
+
+    @staticmethod
+    def blend_functions(foos, t):
+        return lambda x: (1 - t + math.floor(t)) * foos[math.floor(t)](x) + \
+                         (t - math.floor(t)) * foos[min(math.floor(t) + 1, len(foos) - 1)](x)
 
 
 class FunctionSequenceAnimation(SingleAnimation):
@@ -712,7 +736,7 @@ class FunctionSequenceAnimation(SingleAnimation):
 def normalize_function(foo, interval=(0, 1), precision=100):
     start, end = interval
     norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
-    print(norm)
+    # print(norm)
     return lambda x: foo(x)/norm
 
 
