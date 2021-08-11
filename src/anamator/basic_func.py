@@ -323,9 +323,12 @@ class AxisSurface(Surface):
             for t in np.linspace(*interval_of_param, max(self.res)*settings['sampling rate']):
                 x, y1 = self.transform_to_surface_coordinates(function1.get_point(t))
                 x, y2 = self.transform_to_surface_coordinates(function2.get_point(t))
-                for y in range(min(y1, y2), max(y2, y1) + 1):
-                    if self.check_if_point_is_valid((x, y)):
-                        tmp_bitmap[x, y] = 1
+                if self.check_if_point_is_valid((x, min(y1, y2))) and self.check_if_point_is_valid((x, max(y2, y1))):
+                    tmp_bitmap[x, min(y1, y2):max(y2, y1) + 1] = 1
+                else:
+                    for y in range(min(y1, y2), max(y2, y1) + 1):
+                        if self.check_if_point_is_valid((x, y)):
+                            tmp_bitmap[x, y] = 1
         blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
         processed_bitmap = self._visual_enhancement(tmp_bitmap, settings['thickness'], settings['blur'],
                                                     blur_kernel, settings['color'])

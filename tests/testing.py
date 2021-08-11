@@ -262,10 +262,16 @@ def test_blitting_recs():
     frame.generate_png('test_blitting_recs.png')
 
 
+def stupid_test():
+    a = [1, 2]
+    print(a[1:2])
+
+
 if __name__ == '__main__':
     init()
     # basic_test()
     # test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
     # testing_dashed_line()
-    test_blitting_recs()
+    # test_blitting_recs()
+    stupid_test()
