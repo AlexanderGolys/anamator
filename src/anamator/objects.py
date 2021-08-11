@@ -299,12 +299,11 @@ class Function(ParametricObject):
         def create_const(c):
             return lambda x: c
 
-        self.const = None
-
         if const is None:
             super().__init__(lambda x: x, function)
         else:
             super().__init__(lambda x: x, create_const(const))
+        self.const = const
 
     def __call__(self, *args, **kwargs):
         if self.const is not None:
@@ -340,7 +339,7 @@ class FilledObject(Object):
         if interval is None:
             raise ValueError('Interval is None')
 
-    @deprecation.deprecated(removed_in='1.0.0', details='Interval should always be specified in constructor.')
+    @deprecation.deprecated(deprecated_in='1.0.0', details='Interval should always be specified in constructor.')
     def add_interval(self, interval):
         if interval is None:
             raise ValueError('Interval is None')

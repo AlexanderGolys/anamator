@@ -4,8 +4,8 @@ import sys
 
 import numpy as np
 
-import animator.basic_func as basic_func
-import animator.objects as objects
+import src.anamator.basic_func as basic_func
+import src.anamator.objects as objects
 
 
 def find_sup(foo, interval, precision=50):

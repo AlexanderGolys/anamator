@@ -3,7 +3,8 @@ import os
 
 import numpy as np
 
-from animator import basic_func, objects
+from src.anamator import basic_func, objects
+
 
 def testing_dashed_line():
     basic_func.DEBUG = True
@@ -240,9 +241,31 @@ def init():
         pass
 
 
+def test_blitting_recs():
+    blended_rec_settings = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'purple 1'
+    }
+
+    frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
+    frame.add_axis_surface((-10, 10), (-10, 10))
+    rec1 = objects.FilledObject(objects.Function(function=None, const=6), objects.Function(function=None, const=-2),
+                                (-4, 5))
+    rec2 = objects.FilledObject(objects.Function(function=None, const=7), objects.Function(function=None, const=-8),
+                                (-7, -5))
+    frame.axis_surface.blit_filled_object(rec1, blended_rec_settings, queue=True)
+    frame.axis_surface.blit_filled_object(rec2, blended_rec_settings, queue=True)
+    frame.axis_surface.blit_filled_queue()
+    frame.blit_axis_surface()
+    frame.generate_png('test_blitting_recs.png')
+
+
 if __name__ == '__main__':
     init()
     # basic_test()
     # test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
-    testing_dashed_line()
+    # testing_dashed_line()
+    test_blitting_recs()
