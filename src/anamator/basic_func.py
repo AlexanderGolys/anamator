@@ -311,13 +311,19 @@ class AxisSurface(Surface):
         function2 = filled_obj.function2
 
         tmp_bitmap = np.zeros(self.res)
+        if filled_obj.is_rec():
+            x0, x1 = interval_of_param
+            x0, y0 = self.transform_to_surface_coordinates(function1.get_point(x0))
+            x1, y1 = self.transform_to_surface_coordinates(function1.get_point(x1))
+            tmp_bitmap[x0:x1, y0:y1] = 1
 
-        for t in np.linspace(*interval_of_param, max(self.res)*settings['sampling rate']):
-            x, y1 = self.transform_to_surface_coordinates(function1.get_point(t))
-            x, y2 = self.transform_to_surface_coordinates(function2.get_point(t))
-            for y in range(min(y1, y2), max(y2, y1) + 1):
-                if self.check_if_point_is_valid((x, y)):
-                    tmp_bitmap[x, y] = 1
+        else:
+            for t in np.linspace(*interval_of_param, max(self.res)*settings['sampling rate']):
+                x, y1 = self.transform_to_surface_coordinates(function1.get_point(t))
+                x, y2 = self.transform_to_surface_coordinates(function2.get_point(t))
+                for y in range(min(y1, y2), max(y2, y1) + 1):
+                    if self.check_if_point_is_valid((x, y)):
+                        tmp_bitmap[x, y] = 1
         blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
         processed_bitmap = self._visual_enhancement(tmp_bitmap, settings['thickness'], settings['blur'],
                                                     blur_kernel, settings['color'])
@@ -331,6 +337,7 @@ class AxisSurface(Surface):
             return
         for obj in self.filled_blitting_queue:
             obj.shift_interval()
+        # if all(self.filled_blitting_queue, )
         debug('blitting filled queue', short=False)
         obj = functools.reduce(lambda x, y: x.stack_filled_objects(y), self.filled_blitting_queue)
         self.blit_filled_object(obj, self.filled_queue_settings, obj.interval)
