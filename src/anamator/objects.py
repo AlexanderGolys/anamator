@@ -340,7 +340,7 @@ class FilledObject(Object):
         if interval is None:
             raise ValueError('Interval is None')
 
-    @deprecation.deprecated()
+    @deprecation.deprecated(removed_in='1.0.0', details='Interval should always be specified in constructor.')
     def add_interval(self, interval):
         if interval is None:
             raise ValueError('Interval is None')
