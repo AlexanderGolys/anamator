@@ -174,9 +174,9 @@ class BitmapObject(Object):
         return np.array(img)
 
 
-class Axis(BitmapObject):
+class ImageObject(BitmapObject):
     """
-    Axis object.
+    Image object.
     """
 
     def __init__(self, image_path, resolution=None):
@@ -189,19 +189,23 @@ class Axis(BitmapObject):
         Raises:
             AttributeError: If given image is not in RGBA
         """
-        super().__init__()
+        # super().__init__()
         img = Image.open(image_path)
-        self.image = np.array(img)
-        if self.image.shape[3] != 4:
+        image = np.array(img)
+        if image.shape[2] != 4:
             raise AttributeError("Image has to be in RGBA")
 
         if resolution is None:
-            self.res = self.image.shape[:2]
+            res = image.shape[:2]
         else:
-            self.res = resolution
+            res = resolution
 
-        if self.image.shape[:2] != self.res:
-            self.image = BitmapObject.static_reshape(self.image, resolution)
+        if image.shape[:2] != res:
+            image = BitmapObject.static_reshape(image, resolution)
+
+        image[..., 3] = image[..., 3]/255
+
+        super().__init__(image, res)
 
 
 class ParametricObject(Object):
