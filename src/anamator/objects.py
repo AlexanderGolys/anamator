@@ -287,6 +287,10 @@ class ParametricObject(Object):
         self.bounds = [0, self.bounds[1]-self.bounds[0]]
 
 
+def create_const(c):
+    return lambda x: c
+
+
 class Function(ParametricObject):
     def __init__(self, function, const=None):
         """
@@ -296,9 +300,6 @@ class Function(ParametricObject):
                 created out of value of const. Where creating constant function, this way is preferred as it
                 optimize implementation of some methods operating on Function objects.
         """
-        def create_const(c):
-            return lambda x: c
-
         if const is None:
             super().__init__(lambda x: x, function)
         else:

@@ -14,9 +14,9 @@ class TestSurface(unittest.TestCase):
         point0 = (0, 0)
         point1 = (0, 10)
         point2 = (-15, 20)
-        self.assertEqual(self.surface.transform_to_surface_coordinates(point0), self.surface.zero_coords)
-        self.assertEqual(self.surface.transform_to_surface_coordinates(point1), (500, 200))
-        self.assertEqual(self.surface.transform_to_surface_coordinates(point2), (250, 300))
+        self.assertEqual(self.surface.transform_to_pixel_coordinates(point0), self.surface.zero_coords)
+        self.assertEqual(self.surface.transform_to_pixel_coordinates(point1), (500, 200))
+        self.assertEqual(self.surface.transform_to_pixel_coordinates(point2), (250, 300))
 
     def test_point_validity_check(self):
         bad_point1_pixel = (-1, 0)

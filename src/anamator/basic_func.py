@@ -22,6 +22,10 @@ def debug(log, short=True):
         print(f'--- {log} ---')
 
 
+def create_const(c):
+    return lambda x: c
+
+
 class Surface:
     """
     Single bitmap object.
@@ -75,6 +79,84 @@ class Surface:
         img = Image.fromarray(scaled_alpha)
         img.save(filename)
 
+    @staticmethod
+    def merge_images(bottom_img, top_img):
+        """
+        Puts img2 on top of img1.
+        Args:
+            bottom_img: First (bottom) image.
+            top_img: Second (top) image.
+
+        Returns:
+            np.array: Merged image.
+
+        Raises:
+            ValueError: Image are not in the same shape.
+        """
+        debug('merging images', short=False)
+
+        if bottom_img.shape != top_img.shape:
+            raise ValueError
+
+        result = np.zeros(bottom_img.shape)
+        for x, y in itertools.product(range(bottom_img.shape[0]), range(bottom_img.shape[1])):
+            alpha1 = bottom_img[x, y, 3]
+            alpha2 = top_img[x, y, 3]
+            for channel in range(3):
+                result[x, y, channel] = alpha2 * top_img[x, y, channel] + alpha1 * (1 - alpha2) * bottom_img[x, y, channel]
+            result[x, y, 3] = 1-(1-alpha1)*(1-alpha2)
+        return result
+
+    def check_if_point_is_valid(self, point):
+        """
+        Check if point in pixel coordinates is valid point on this surface.
+        If abstract_coords is True, point is treated as in abstract coordinates.
+
+        Args:
+            point (tuple of ints): Coordinates of the point.
+
+        Returns:
+            bool: True if point is valid.
+        """
+        debug('checking if point is valid', short=True)
+        x, y = point
+        return 0 <= x < self.res[0] and 0 <= y < self.res[1]
+
+    def blit_distinct_bitmap_objects(self, centers, img_objects, settings):
+        """
+        Blitting bitmap objects to the surface if it fits.
+        When objects are not distinct, their alpha channel wil be ignored.
+
+        Args:
+            centers (list or tuple): List of center coords in pixel coordinates.
+            img_objects (list or objects.BitmapObject): List of BitmapObjects to be blitted.
+            settings (dict): Blitting settings.
+        """
+
+        blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
+        blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
+
+        debug('blitting bitmap object', short=False)
+        tmp_bitmap = np.zeros(self.res + (4,))
+
+        for img_object, center in zip(img_objects, centers):
+            x, y = np.array(center) - np.array(img_object.res) // 2
+            if not self.check_if_point_is_valid((x, y)) or not \
+                    self.check_if_point_is_valid(np.array(center)
+                                                 + np.array(img_object.res) // 2):
+                continue
+
+            tmp_bitmap[x:x + img_object.res[0], y:y + img_object.res[1], :] = img_object.bitmap
+
+        if blur_kernel == 'box' and blur > 1:
+            kernel = np.zeros((blur, blur))
+            kernel.fill(1/blur**2)
+
+            # TODO: Other kernels
+            tmp_bitmap[:, :, 3] = scipy.signal.convolve2d(tmp_bitmap[:, :, 3], kernel, mode='same')
+
+        self.bitmap = self.merge_images(self.bitmap, tmp_bitmap)
+
 
 class AxisSurface(Surface):
     """
@@ -106,7 +188,7 @@ class AxisSurface(Surface):
         self.parametric_queue_settings = None
         self.filled_queue_settings = None
 
-    def transform_to_surface_coordinates(self, point):
+    def transform_to_pixel_coordinates(self, point):
         """
         Returns pixel coordinates of the point in abstract coordinates.
 
@@ -141,7 +223,7 @@ class AxisSurface(Surface):
         """
         debug('checking if point is valid', short=True)
         if abstract_coords:
-            point = self.transform_to_surface_coordinates(point)
+            point = self.transform_to_pixel_coordinates(point)
         x, y = point
         return 0 <= x < self.res[0] and 0 <= y < self.res[1]
 
@@ -189,34 +271,6 @@ class AxisSurface(Surface):
 
         return target_image
 
-    @staticmethod
-    def merge_images(bottom_img, top_img):
-        """
-        Puts img2 on top of img1.
-        Args:
-            bottom_img: First (bottom) image.
-            top_img: Second (top) image.
-
-        Returns:
-            np.array: Merged image.
-
-        Raises:
-            ValueError: Image are not in the same shape.
-        """
-        debug('merging images', short=False)
-
-        if bottom_img.shape != top_img.shape:
-            raise ValueError
-
-        result = np.zeros(bottom_img.shape)
-        for x, y in itertools.product(range(bottom_img.shape[0]), range(bottom_img.shape[1])):
-            alpha1 = bottom_img[x, y, 3]
-            alpha2 = top_img[x, y, 3]
-            for channel in range(3):
-                result[x, y, channel] = alpha2 * top_img[x, y, channel] + alpha1 * (1 - alpha2) * bottom_img[x, y, channel]
-            result[x, y, 3] = 1-(1-alpha1)*(1-alpha2)
-        return result
-
     def blit_parametric_object(self, obj, settings=None, interval_of_param=None, queue=False):
         """
         Blitting ParametricObject to the surface.
@@ -257,7 +311,7 @@ class AxisSurface(Surface):
         color = (0xFF, 0xFF, 0xFF, 1) if settings is None or 'color' not in settings.keys() else settings['color']
 
         for t in np.linspace(*interval_of_param, max(self.res)*sampling_rate):
-            point = self.transform_to_surface_coordinates(obj.get_point(t))
+            point = self.transform_to_pixel_coordinates(obj.get_point(t))
 
             if self.check_if_point_is_valid(point):
                 tmp_bitmap[point] = 1
@@ -313,16 +367,16 @@ class AxisSurface(Surface):
         tmp_bitmap = np.zeros(self.res)
         if filled_obj.is_rec():
             x0, x1 = interval_of_param
-            x0, y0 = self.transform_to_surface_coordinates(function1.get_point(x0))
-            x1, y1 = self.transform_to_surface_coordinates(function2.get_point(x1))
+            x0, y0 = self.transform_to_pixel_coordinates(function1.get_point(x0))
+            x1, y1 = self.transform_to_pixel_coordinates(function2.get_point(x1))
             y0, y1 = sorted([y0, y1])
             print(x0, x1, y0, y1)
             tmp_bitmap[x0:x1, y0:y1] = 1
 
         else:
             for t in np.linspace(*interval_of_param, max(self.res)*settings['sampling rate']):
-                x, y1 = self.transform_to_surface_coordinates(function1.get_point(t))
-                x, y2 = self.transform_to_surface_coordinates(function2.get_point(t))
+                x, y1 = self.transform_to_pixel_coordinates(function1.get_point(t))
+                x, y2 = self.transform_to_pixel_coordinates(function2.get_point(t))
                 if self.check_if_point_is_valid((x, min(y1, y2))) and self.check_if_point_is_valid((x, max(y2, y1))):
                     tmp_bitmap[x, min(y1, y2):max(y2, y1) + 1] = 1
                 else:
@@ -349,8 +403,8 @@ class AxisSurface(Surface):
             tmp_bitmap = np.zeros(self.res)
             for obj in self.filled_blitting_queue:
                 x0, x1 = obj.interval
-                x0, y0 = self.transform_to_surface_coordinates(obj.function1.get_point(x0))
-                x1, y1 = self.transform_to_surface_coordinates(obj.function2.get_point(x1))
+                x0, y0 = self.transform_to_pixel_coordinates(obj.function1.get_point(x0))
+                x1, y1 = self.transform_to_pixel_coordinates(obj.function2.get_point(x1))
                 y0, y1 = sorted([y0, y1])
                 tmp_bitmap[x0:x1, y0:y1] = 1
             settings = self.filled_queue_settings
@@ -462,40 +516,9 @@ class AxisSurface(Surface):
             surface_coordinates (bool): Type of coordinates.
         """
 
-        blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
-        blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
-
-        debug('blitting bitmap object', short=False)
-        tmp_bitmap = np.zeros(self.res + (4,))
-
-        if not surface_coordinates:
-            for img_object, center in zip(img_objects, centers):
-                x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
-                if not self.check_if_point_is_valid((x, y)) or not \
-                        self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
-                                                     + np.array(img_object.res) // 2):
-                    continue
-
-                tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
-        else:
-            for img_object, center in zip(img_objects, centers):
-                x, y = np.array(center) + np.array(img_object.res) // 2
-                if not self.check_if_point_is_valid((x, y)) or not \
-                        self.check_if_point_is_valid(np.array(center)
-                                                     + np.array(img_object.res) // 2):
-                    continue
-
-                tmp_bitmap[x:x + img_object.res[0], y:y + img_object.res[1], :] = img_object.bitmap
-
-        if blur_kernel == 'box':
-            kernel = np.zeros((blur, blur))
-            kernel.fill(1/blur**2)
-
-            # TODO: Other kernels
-            if blur != 0:
-                tmp_bitmap[:, :, 3] = scipy.signal.convolve2d(tmp_bitmap[:, :, 3], kernel, mode='same')
-
-        self.bitmap = self.merge_images(self.bitmap, tmp_bitmap)
+        if surface_coordinates:
+            centers = list(map(lambda center: self.transform_to_pixel_coordinates(center), centers))
+        super().blit_distinct_bitmap_objects(centers, img_objects, settings)
 
     def blit_closed_pixel_point(self, coords, radius, opacity, settings, padding=5):
         """
@@ -653,17 +676,60 @@ class OneAxisFrame(Frame):
         """
         self.axis_surface.blit_axes(settings, x_only=x_only)
 
+
 class ThreeAxisFrame(Frame):
-    def __init__(self, res, bg_color, x_padding, y_padding):
+    def __init__(self, res, bg_color, x_padding, y_padding, left_mid_padding, right_mid_padding):
         super().__init__(res, bg_color, x_padding, y_padding)
         self.axis_surface_left = None
         self.axis_surface_middle = None
         self.axis_surface_right = None
-        self.left_mid_padding = None
-        self.right_mid_padding = None
+        self.left_mid_padding = left_mid_padding
+        self.right_mid_padding = left_mid_padding
 
-    def add_axis_surfaces(self, res_left, res_middle, res_right, x_padding, y_padding,
-                          left_mid_padding, right_mid_padding):
+    def add_axis_surfaces(self, res_left, res_middle, res_right, bounds_left, bounds_middle, bounds_right):
+        self.axis_surface_left = AxisSurface(res_left, *bounds_left)
+        self.axis_surface_middle = AxisSurface(res_middle, *bounds_middle)
+        self.axis_surface_middle = AxisSurface(res_right, *bounds_right)
+
+    def blit_axis_surfaces(self):
+        self.axis_surface_left.blit_parametric_queue()
+        self.axis_surface_left.blit_filled_queue()
+        self.axis_surface_right.blit_parametric_queue()
+        self.axis_surface_right.blit_filled_queue()
+        self.axis_surface_middle.blit_parametric_queue()
+        self.axis_surface_middle.blit_filled_queue()
+        self.blit_surface(self.axis_surface_left, (self.x_padding, self.y_padding))
+        self.blit_surface(self.axis_surface_middle,
+                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0], self.y_padding))
+        self.blit_surface(self.axis_surface_right,
+                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0]
+                           + self.axis_surface_middle.res[0] + self.right_mid_padding, self.y_padding))
+
+    def blit_frames_around_axis_surfaces(self, settings):
+        def make_rec(c1, c2):
+            x1, y1 = c1
+            x2, y2 = c2
+            el1 = objects.ParametricObject(lambda x: x, create_const(y1), (x1, x2))
+            el2 = objects.ParametricObject(lambda x: x, create_const(y2), (x1, x2))
+            el3 = objects.ParametricObject(create_const(x1), lambda y: y, (y1, y2))
+            el4 = objects.ParametricObject(create_const(x2), lambda y: y, (y1, y2))
+            return functools.reduce(lambda a, b: a.stack_parametric_objects(b), [el1, el2, el3, el4])
+        rec1 = make_rec((self.x_padding, self.x_padding + self.axis_surface_left.res[0]),
+                        (self.y_padding, self.y_padding + self.axis_surface_left.res[1]))
+        rec2 = make_rec((self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0],
+                         self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0] +
+                         self.axis_surface_middle.res[0]),
+                        (self.y_padding, self.y_padding + self.axis_surface_middle.res[1]))
+        rec3 = make_rec((self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0]
+                        + self.axis_surface_middle.res[0] + self.right_mid_padding, self.x_padding
+                        + self.axis_surface_right.res[0] + self.left_mid_padding[0]
+                        + self.axis_surface_middle.res[0] + self.right_mid_padding + self.axis_surface_right.res[0]),
+                        (self.y_padding, self.y_padding + self.axis_surface_right.res[1]))
+
+
+
+
+
 
 class Film:
     """
