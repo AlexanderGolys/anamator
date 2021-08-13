@@ -260,6 +260,24 @@ def test_blitting_recs():
     frame.axis_surface.blit_filled_queue()
     frame.blit_axis_surface()
     frame.generate_png('test_blitting_recs.png')
+    
+def test_blitting_images():
+    blended_rec_settings = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'purple 1'
+    }
+
+    frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
+    frame.add_axis_surface((-10, 10), (-10, 10))
+    img = objects.ImageObject('img//m.png')
+    frame.axis_surface.blit_bitmap_object((0, 0), img, blended_rec_settings)
+    #frame.axis_surface.blit_filled_object(rec1, blended_rec_settings, queue=True)
+    #frame.axis_surface.blit_filled_object(rec2, blended_rec_settings, queue=True)
+    frame.axis_surface.blit_filled_queue()
+    frame.blit_axis_surface()
+    frame.generate_png('test_blitting_images.png')
 
 
 def stupid_test():
@@ -274,4 +292,5 @@ if __name__ == '__main__':
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
     # testing_dashed_line()
     # test_blitting_recs()
-    stupid_test()
+#     stupid_test()
+    test_blitting_images()
