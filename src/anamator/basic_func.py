@@ -444,13 +444,13 @@ class AxisSurface(Surface):
         circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
-    def blit_bitmap_object(self, center, img_object, settings):
+    def blit_bitmap_object(self, center, img_object, settings, surface_coordinates=False):
         """
         Blitting single bitmap object, alias for blit_distinct_bitmap_objects with only one object in a list.
         """
-        self.blit_distinct_bitmap_objects([center], [img_object], settings)
+        self.blit_distinct_bitmap_objects([center], [img_object], settings, surface_coordinates=surface_coordinates)
 
-    def blit_distinct_bitmap_objects(self, centers, img_objects, settings):
+    def blit_distinct_bitmap_objects(self, centers, img_objects, settings, surface_coordinates=False):
         """
         Blitting bitmap objects to the surface if it fits.
         When objects are not distinct, their alpha channel wil be ignored.
@@ -459,6 +459,7 @@ class AxisSurface(Surface):
             centers (list or tuple): List of center coords in abstract coordinates.
             img_objects (list or objects.BitmapObject): List of BitmapObjects to be blitted.
             settings (dict): Blitting settings.
+            surface_coordinates (bool): Type of coordinates.
         """
 
         blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
@@ -467,14 +468,24 @@ class AxisSurface(Surface):
         debug('blitting bitmap object', short=False)
         tmp_bitmap = np.zeros(self.res + (4,))
 
-        for img_object, center in zip(img_objects, centers):
-            x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
-            if not self.check_if_point_is_valid((x, y)) or not \
-                    self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
-                                                 + np.array(img_object.res) // 2):
-                continue
+        if not surface_coordinates:
+            for img_object, center in zip(img_objects, centers):
+                x, y = np.array(self.transform_to_surface_coordinates(center)) + np.array(img_object.res)//2
+                if not self.check_if_point_is_valid((x, y)) or not \
+                        self.check_if_point_is_valid(np.array(self.transform_to_surface_coordinates(center))
+                                                     + np.array(img_object.res) // 2):
+                    continue
 
-            tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
+                tmp_bitmap[x:x+img_object.res[0], y:y+img_object.res[1], :] = img_object.bitmap
+        else:
+            for img_object, center in zip(img_objects, centers):
+                x, y = np.array(center) + np.array(img_object.res) // 2
+                if not self.check_if_point_is_valid((x, y)) or not \
+                        self.check_if_point_is_valid(np.array(center)
+                                                     + np.array(img_object.res) // 2):
+                    continue
+
+                tmp_bitmap[x:x + img_object.res[0], y:y + img_object.res[1], :] = img_object.bitmap
 
         if blur_kernel == 'box':
             kernel = np.zeros((blur, blur))
@@ -642,6 +653,17 @@ class OneAxisFrame(Frame):
         """
         self.axis_surface.blit_axes(settings, x_only=x_only)
 
+class ThreeAxisFrame(Frame):
+    def __init__(self, res, bg_color, x_padding, y_padding):
+        super().__init__(res, bg_color, x_padding, y_padding)
+        self.axis_surface_left = None
+        self.axis_surface_middle = None
+        self.axis_surface_right = None
+        self.left_mid_padding = None
+        self.right_mid_padding = None
+
+    def add_axis_surfaces(self, res_left, res_middle, res_right, x_padding, y_padding,
+                          left_mid_padding, right_mid_padding):
 
 class Film:
     """
