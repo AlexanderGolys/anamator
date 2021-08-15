@@ -27,7 +27,13 @@ class ColorParser:
             'purple 1': (65, 64, 115, 1),
             'purple 2': (76, 57, 87, 1),
             'green 1': (121, 180, 115, 1),
-            'green 2': (112, 163, 127, 1)
+            'green 2': (112, 163, 127, 1),
+            'light red': (254, 147, 140, 1),
+            'tea green': (194, 234, 189, 1),
+            'melon': (252, 185, 178, 1),
+            'red pastel 1': (252, 185, 178, 1),
+            'apricot': (254, 208, 187, 1),
+            'red pastel 2': (254, 208, 187, 1),
         }
         if isinstance(color, str) and color[0] != '#':
             try:
@@ -42,6 +48,17 @@ class ColorParser:
             return int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16), int(color[7:], 16)
 
         return color
+
+
+def normalize_function(foo, interval=(0, 1), precision=100):
+    start, end = interval
+    norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
+    # print(norm)
+    return lambda x: foo(x)/norm
+
+
+def make_periodic(foo, t=1):
+    return lambda x: foo(x-x//t*t)
 
 
 class PredefinedSettings:
@@ -67,6 +84,8 @@ class PredefinedSettings:
             'blur': 2,
             'color': 'white'
         }
+    hd_foo = t5b2white
+    fhd_axis = t5b2white
 
     t5b2gray = {
             'sampling rate': 3,
@@ -81,6 +100,7 @@ class PredefinedSettings:
             'blur': 0,
             'color': 'white'
         }
+    white_filling = t0b0white
 
     t10b4white = {
             'sampling rate': 3,
@@ -88,6 +108,7 @@ class PredefinedSettings:
             'blur': 4,
             'color': 'white'
         }
+    fhd_foo = t10b4white
 
     t2b0white = {
             'sampling rate': 3,
@@ -114,9 +135,9 @@ class PredefinedSettings:
             'color': 'gray'
         }
 
-    slow_differential = lambda x: (x - 1/4) ** 2 * (3/4 - x) ** 2 if abs(x - 1 / 2) < 1/4 else 0
+    slow_differential = make_periodic(normalize_function(lambda x: (x - 1/4) ** 2 * (3/4 - x) ** 2 if abs(x - 1 / 2) < 1/4 else 0))
 
-    fast_differential = lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0
+    fast_differential = make_periodic(normalize_function(lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0))
 
 
 class Object(ABC):
@@ -137,7 +158,6 @@ class BitmapObject(Object):
         res (tuple of ints): Image resolution
     """
 
-    @abstractmethod
     def __init__(self, image, res):
         super().__init__()
         self.bitmap = image
@@ -296,7 +316,7 @@ def create_const(c):
 
 
 class Function(ParametricObject):
-    def __init__(self, function, const=None):
+    def __init__(self, function=None, const=None):
         """
         Args:
             function (func): Function to be represented.
@@ -315,15 +335,40 @@ class Function(ParametricObject):
             return self.const
         return self.y_function(*args, **kwargs)
 
-    def sup(self, interval, precision=50):
+    def sup(self, interval=(0, 1), precision=50):
         if self.const is not None:
             return self.const
         return max([self(x) for x in np.linspace(*interval, precision)])
 
-    def inf(self, interval, precision=50):
+    def inf(self, interval=(0, 1), precision=50):
         if self.const is not None:
             return self.const
         return min([self(x) for x in np.linspace(*interval, precision)])
+
+    def zeros(self, interval=(0, 1), precision=100):
+        if self.const == 0:
+            return list(np.linspace(*interval, precision))
+        if self.const is not None:
+            return []
+        division = [(i, self(i)) for i in np.linspace(*interval, precision)]
+        result = []
+        for p1, p2 in zip(division[:-1], division[1:]):
+            x1, y1 = p1
+            x2, y2 = p2
+            if y1 == 0:
+                result.append(x1)
+            if y2 == 0:
+                result.append(x2)
+            if y1*y2 < 0:
+                result.append((x1 + x2)/2)
+        return result
+
+    def one_sign_intervals(self, interval=(0, 1), precision=100):
+        points = [interval[0]] + self.zeros(interval, precision) + [interval[1]]
+        points = sorted(list(set(points)))
+        return list(zip(points[:-1], points[1:]))
+
+
 
 
 class FilledObject(Object):
@@ -370,7 +415,10 @@ class FilledObject(Object):
         self.interval = [0, self.interval[1]-self.interval[0]]
 
     def is_rec(self):
-        return self.function1.const is not None and self.function2.const is not None
+        try:
+            return self.function1.const is not None and self.function2.const is not None
+        except AttributeError:
+            return False
 
 
 class Disk(FilledObject):

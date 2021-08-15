@@ -614,7 +614,7 @@ class OneAxisFrame(Frame):
     Frame with only one axis.
     Class created to simplify most common type of frames, not offering anything new.
     """
-    def __init__(self, res, bg_color, x_padding, y_padding):
+    def __init__(self, res, bg_color='black', x_padding=100, y_padding=100):
         super().__init__(res, bg_color, x_padding, y_padding)
         self.axis_surface = None
 
@@ -689,7 +689,12 @@ class ThreeAxisFrame(Frame):
     def add_axis_surfaces(self, res_left, res_middle, res_right, bounds_left, bounds_middle, bounds_right):
         self.axis_surface_left = AxisSurface(res_left, *bounds_left)
         self.axis_surface_middle = AxisSurface(res_middle, *bounds_middle)
-        self.axis_surface_middle = AxisSurface(res_right, *bounds_right)
+        self.axis_surface_right = AxisSurface(res_right, *bounds_right)
+
+    def add_equal_axis_surfaces(self, bounds_left, bounds_middle, bounds_right):
+        x = (self.res[0] - 2*self.x_padding - self.left_mid_padding - self.right_mid_padding)//3
+        y = self.res[1] - 2*self.y_padding
+        self.add_axis_surfaces((x, y), (x, y), (x, y), bounds_left, bounds_middle, bounds_right)
 
     def blit_axis_surfaces(self):
         self.axis_surface_left.blit_parametric_queue()
@@ -700,35 +705,38 @@ class ThreeAxisFrame(Frame):
         self.axis_surface_middle.blit_filled_queue()
         self.blit_surface(self.axis_surface_left, (self.x_padding, self.y_padding))
         self.blit_surface(self.axis_surface_middle,
-                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0], self.y_padding))
+                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding, self.y_padding))
         self.blit_surface(self.axis_surface_right,
-                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0]
+                          (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding
                            + self.axis_surface_middle.res[0] + self.right_mid_padding, self.y_padding))
 
-    def blit_frames_around_axis_surfaces(self, settings):
-        def make_rec(c1, c2):
-            x1, y1 = c1
-            x2, y2 = c2
-            el1 = objects.ParametricObject(lambda x: x, create_const(y1), (x1, x2))
-            el2 = objects.ParametricObject(lambda x: x, create_const(y2), (x1, x2))
-            el3 = objects.ParametricObject(create_const(x1), lambda y: y, (y1, y2))
-            el4 = objects.ParametricObject(create_const(x2), lambda y: y, (y1, y2))
-            return functools.reduce(lambda a, b: a.stack_parametric_objects(b), [el1, el2, el3, el4])
-        rec1 = make_rec((self.x_padding, self.x_padding + self.axis_surface_left.res[0]),
-                        (self.y_padding, self.y_padding + self.axis_surface_left.res[1]))
-        rec2 = make_rec((self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0],
-                         self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0] +
-                         self.axis_surface_middle.res[0]),
-                        (self.y_padding, self.y_padding + self.axis_surface_middle.res[1]))
-        rec3 = make_rec((self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding[0]
-                        + self.axis_surface_middle.res[0] + self.right_mid_padding, self.x_padding
-                        + self.axis_surface_right.res[0] + self.left_mid_padding[0]
-                        + self.axis_surface_middle.res[0] + self.right_mid_padding + self.axis_surface_right.res[0]),
-                        (self.y_padding, self.y_padding + self.axis_surface_right.res[1]))
+    def blit_frames_around_axis_surfaces(self, settings, x_inner_bounds=0, y_inner_bounds=0):
+        color = objects.ColorParser.parse_color(settings['color'])
+        thickness = settings['thickness']
 
+        def make_rec(res):
+            x_size, y_size = res
+            x_size += 2*x_inner_bounds
+            y_size += 2*y_inner_bounds
+            rec = np.zeros((x_size, y_size, 4))
+            for i, c in enumerate(color):
+                rec[:thickness+1, :, i] = c
+                rec[x_size-thickness:, :, i] = c
+                rec[:, :thickness+1, i] = c
+                rec[:, y_size-thickness:, i] = c
+            return objects.BitmapObject(rec, (x_size, y_size))
 
-
-
+        centers = ((self.x_padding + self.axis_surface_left.res[0]//2,
+                    self.y_padding + self.axis_surface_left.res[1]//2),
+                   (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding +
+                    self.axis_surface_middle.res[0]//2, self.y_padding + self.axis_surface_middle.res[1]//2),
+                   (self.x_padding + self.axis_surface_right.res[0] + self.left_mid_padding
+                    + self.axis_surface_middle.res[0] + self.right_mid_padding + self.axis_surface_right.res[0]//2,
+                    self.y_padding + self.axis_surface_right.res[1]//2))
+        recs = [make_rec(self.axis_surface_left.res),
+                make_rec(self.axis_surface_middle.res),
+                make_rec(self.axis_surface_right.res)]
+        self.blit_distinct_bitmap_objects(centers, recs, settings)
 
 
 class Film:
@@ -823,12 +831,18 @@ class SingleAnimation:
         fps = settings['fps']//speed
 
         t = lambda h: sum([self.differential(k/(fps*precision)) for k in range(math.floor(h*fps)*precision)])/(fps*precision)
+        prev_t = math.nan
+        last_frame = None
         for dt in np.arange(start_from/fps, duration, 1/fps):
             if read_only:
                 film.frame_counter += 1
+            elif math.isclose(t(dt), prev_t, abs_tol=1e-9):
+                film.add_frame(last_frame, save_ram=save_ram)
             else:
-                film.add_frame(self.frame_generator(t(dt)), save_ram=save_ram)
-                debug(f'[{round(dt*fps)+1}/{round(fps*duration)} ({int(100*(round(dt*fps)+1)/(fps*duration))}%)]', short=False)
+                last_frame = self.frame_generator(t(dt))
+                film.add_frame(last_frame, save_ram=save_ram)
+            prev_t = t(dt)
+            debug(f'[{round(dt*fps)+1}/{round(fps*duration)} ({int(100*(round(dt*fps)+1)/(fps*duration))}%)]', short=False)
         film.render(filename, save_ram)
 
     @staticmethod
@@ -844,10 +858,14 @@ class SingleAnimation:
 
 class FunctionSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_foo):
-        frame_generator = lambda t: frame_generator_from_foo(lambda x: (1-t+math.floor(t))*sequence[math.floor(t)](x)
-                                            + (t-math.floor(t))*sequence[min(math.floor(t)+1, len(sequence)-1)](x))
-
+        frame_generator = lambda t: frame_generator_from_foo(self.blend_functions(sequence, t))
         super().__init__(frame_generator, normalize_function(make_periodic(differential)))
+
+
+class IntervalSequenceAnimation(SingleAnimation):
+    def __init__(self, sequence, differential, frame_generator_from_interval):
+        frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
+        super().__init__(frame_generator, differential)
 
 
 def normalize_function(foo, interval=(0, 1), precision=100):
