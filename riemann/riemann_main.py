@@ -9,6 +9,7 @@ import src.anamator.objects as objects
 
 HD = (1280, 720)
 FHD = (1920, 1080)
+SHIT = (640, 480)
 
 
 def find_sup(foo, interval, precision=50):
@@ -519,7 +520,7 @@ def triple_moving(divisions, speed, resolution=HD, filename='triple_moving.mp4')
     animator.render(filename, settings, save_ram=True, id_='op', speed=speed)
 
 
-def absolute_value(func, speed, resolution, filename='abs.mp4'):
+def absolute_value(func, speed, resolution, filename='abs.mp4', id_='abs'):
     x_bounds = (-5, 5)
     area_bounds = (-5, 5)
     function = objects.Function(func)
@@ -543,7 +544,7 @@ def absolute_value(func, speed, resolution, filename='abs.mp4'):
         frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
         frame.add_axis_surface(x_bounds, y_bounds)
         blended_function = objects.Function(foo)
-        one_sign_intervals = blended_function.one_sign_intervals(area_bounds)
+        one_sign_intervals = blended_function.one_sign_intervals(area_bounds, precision=2000)
         for interval in one_sign_intervals:
             fill = objects.FilledObject(objects.Function(const=0), objects.Function(blended_function), interval)
             if blended_function(np.mean(np.asarray(interval))) >= 0:
@@ -561,61 +562,63 @@ def absolute_value(func, speed, resolution, filename='abs.mp4'):
         frame.blit_axis_surface()
         return frame
 
-    animator = basic_func.FunctionSequenceAnimation((func, lambda t: abs(func(t))),
-                                                    objects.PredefinedSettings.slow_differential, gen_frame)
+    animator = basic_func.FunctionSequenceAnimation((func, lambda t: -abs(func(t))),
+                                                    objects.PredefinedSettings.fast_differential, gen_frame)
+    print(objects.PredefinedSettings.fast_differential(3/8))
     settings = {
         'fps': 24,
         'resolution': resolution,
         'duration': 1
     }
-    animator.render(filename, settings, True, 'asd', speed=speed)
+    animator.render(filename, settings, True, id_, speed=speed)
 
 
-def intervals_into_divisions(division, speed, resolution, filename='intervals_into_points.mp4'):
+def intervals_into_divisions(division, speed, resolution, filename='intervals_into_points.mp4',
+                             id_='intervals', slow=False):
     settings_point_interior = {
         'sampling rate': 1,
         'thickness': 1,
         'blur': 0,
-        'color': 'black',
+        'color': 'white',
         'blur kernel': 'none'
     }
-    radius = lambda x: int(25*x**2 + 5/4*x) if x <= 3/4 else int(-25*x**2 + 23.75*x + 11.25)
+
+    def radius(x):
+        if x <= 3/4:
+            return int(16*x)
+        if x <= 1:
+            return int(-16*x+24)
+        else:
+            return 8
 
     def frame_gen(t):
-        if t <= 1:
-            frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
-            frame.add_axis_surface((0, 1), (0, 1))
-            # for x in division:
-            points = [objects.BitmapDisk(radius(t), 'white', 1)]*len(division)
-            frame.axis_surface.blit_distinct_bitmap_objects(list(map(lambda x: (x, 0), division)), points,
-                                                            settings_point_interior)
-        else:
-            frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
-            frame.add_axis_surface((0, 1), (0, 1))
-            # for x in division:
-            points = [objects.BitmapDisk(10, 'white', 1)] * len(division)
-            frame.axis_surface.blit_distinct_bitmap_objects(list(map(lambda x: (x, 0), division)), points,
-                                                            settings_point_interior)
+        frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
+        frame.add_axis_surface((0, 1), (-1, 1))
+        points = [objects.BitmapDisk(radius(t), 'white', 1) for _ in division]
+        frame.axis_surface.blit_distinct_bitmap_objects(list(map(lambda tt: (tt, 0), division)), points,
+                                                        settings_point_interior)
 
-            zero = objects.Function(const=0)
+        if t > 1:
             for interval in zip(division[:-1], division[1:]):
-                mean = np.mean(np.asarray(interval))
                 a, b = interval
+                mean = (a+b)/2
                 t_ = t - 1
-                if not math.isclose(t_, 0):
-                    frame.axis_surface.blit_parametric_object(zero, objects.PredefinedSettings.fhd_axis,
-                                                              (t*a + (1-t)*mean, t*b + (1-t)*mean))
+                if not math.isclose(t_, 0, abs_tol=.01):
+                    frame.axis_surface.blit_parametric_object(objects.Function(const=0),
+                                                              objects.PredefinedSettings.fhd_foo,
+                                                              (t_*a + (1-t_)*mean, t_*b + (1-t_)*mean), queue=True)
             frame.axis_surface.blit_parametric_queue()
         frame.blit_axis_surface()
         return frame
 
-    animator = basic_func.SingleAnimation(frame_gen, objects.PredefinedSettings.slow_differential)
+    animator = basic_func.SingleAnimation(frame_gen, objects.PredefinedSettings.slow_differential) \
+        if slow else basic_func.SingleAnimation(frame_gen, objects.PredefinedSettings.fast_differential)
     settings = {
         'fps': 24,
         'resolution': resolution,
         'duration': 2
     }
-    animator.render(filename, settings, True, 'dupa', speed=speed)
+    animator.render(filename, settings, True, id_, speed=speed)
 
 
 if __name__ == '__main__':
@@ -676,4 +679,9 @@ if __name__ == '__main__':
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 - 1, speed=.1, resolution=FHD)
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .6, speed=1, resolution=FHD, filename='abs6.mp4')
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .65, speed=1, resolution=FHD, filename='abs65.mp4')
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .4, speed=1, resolution=FHD, filename='abs4.mp4')
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .45, speed=1, resolution=FHD, filename='abs45.mp4')
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .55, speed=1, resolution=FHD, filename='abs55.mp4')
+    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .35, speed=1, resolution=FHD, filename='abs35.mp4')

@@ -504,7 +504,7 @@ class AxisSurface(Surface):
         """
         self.blit_distinct_bitmap_objects([center], [img_object], settings, surface_coordinates=surface_coordinates)
 
-    def blit_distinct_bitmap_objects(self, centers, img_objects, settings, surface_coordinates=False):
+    def blit_distinct_bitmap_objects(self, centers, img_objects, settings, surface_coordinates=True):
         """
         Blitting bitmap objects to the surface if it fits.
         When objects are not distinct, their alpha channel wil be ignored.
@@ -834,6 +834,7 @@ class SingleAnimation:
         prev_t = math.nan
         last_frame = None
         for dt in np.arange(start_from/fps, duration, 1/fps):
+            debug(f'[{round(dt*fps)}/{round(fps*duration)} ({int(100*(round(dt*fps))/(fps*duration))}%), t={t(dt): .3f}]', short=False)
             if read_only:
                 film.frame_counter += 1
             elif math.isclose(t(dt), prev_t, abs_tol=1e-9):
@@ -842,7 +843,6 @@ class SingleAnimation:
                 last_frame = self.frame_generator(t(dt))
                 film.add_frame(last_frame, save_ram=save_ram)
             prev_t = t(dt)
-            debug(f'[{round(dt*fps)+1}/{round(fps*duration)} ({int(100*(round(dt*fps)+1)/(fps*duration))}%)]', short=False)
         film.render(filename, save_ram)
 
     @staticmethod
