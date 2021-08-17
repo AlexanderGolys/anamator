@@ -26,5 +26,6 @@ if __name__ == '__main__':
     #        [-4, -3.8, -3.5, -3.2, -3, -2.5, -2.2, -1.9, -1, .4, 1.2, 1.8, 2, 2.4, 2.8, 3, 3.2, 4]]
     #
     # triple_moving(divisions=seq, speed=.33, resolution=FHD)
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + 1, speed=1, resolution=HD,
-                   filename='abs_fast.mp4', id_='abs_fast')
+    # absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + 1, speed=.1, resolution=FHD,
+    #                filename='abs_fast.mp4', id_='abs_fast')
+    hill(.1, FHD, 'exp_hill.mp4')

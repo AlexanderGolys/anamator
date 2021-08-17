@@ -724,6 +724,35 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
     animator.render(filename, settings, save_ram=True, id_=id_, speed=speed, read_only=False)
 
 
+def hill(speed, resolution, filename='hill.mp4'):
+    seq = [lambda x: 0,
+           lambda x: 8*math.exp(-(x-3)**2),
+           lambda x: 8*math.exp(-(x-3)**2) - 3*math.exp(-(x-5.3)**4)]
+
+    settings_rec_positive = {
+        'sampling rate': 2,
+        'thickness': 0,
+        'blur': 3,
+        'color': 'tea green'
+    }
+
+    def fame_generator(foo):
+        frame = basic_func.OneAxisFrame(resolution, 'black', 0, 0)
+        frame.add_axis_surface((0, 8), (-5, 10))
+        ground = objects.FilledObject(objects.Function(const=-5), objects.Function(foo), (0, 8))
+        frame.axis_surface.blit_filled_object(ground, settings_rec_positive)
+        frame.blit_axis_surface()
+        return frame
+
+    animator = basic_func.FunctionSequenceAnimation(seq, objects.PredefinedSettings.exp_differential, fame_generator)
+    settings = {
+        'fps': 24,
+        'resolution': resolution,
+        'duration': 2
+    }
+    animator.render(filename, settings, save_ram=True, id_='koparaexp', speed=speed)
+
+
 if __name__ == '__main__':
     sys.setrecursionlimit(3000)
     # make_lower_sum_film()
