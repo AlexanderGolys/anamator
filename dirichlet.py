@@ -53,7 +53,7 @@ def frame_gen(no_of_points, no_of_fixed):
     frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
     frame.add_axis_surface(x_bounds=(-1.1, 1.5), y_bounds=(-.3, 2))
     frame.blit_axes(settings_axes, x_only=False)
-    frame.blit_distinct_bitmap_objects(centers, before_zoom_points, settings_axes)
+    frame.axis_surface.blit_distinct_bitmap_objects(centers, before_zoom_points, settings_axes)
     frame.blit_axis_surface()
     frame.generate_png('dirichlet.png')
 

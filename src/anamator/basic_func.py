@@ -137,16 +137,8 @@ class Surface:
         result = np.zeros(bottom_img.shape)
         alpha1 = np.array([top_img[:, :, 3], top_img[:, :, 3], top_img[:, :, 3]]).swapaxes(0, 2).swapaxes(0, 1)
         alpha2 = np.array([bottom_img[:, :, 3], bottom_img[:, :, 3], bottom_img[:, :, 3]]).swapaxes(0, 2).swapaxes(0, 1)
-
         result[:, :, :3] = alpha1 * top_img[:, :, :3] + alpha2 * (1 - alpha1) * bottom_img[:, :, :3]
         result[:, :, 3] = 1 - (1 - bottom_img[:, :, 3]) * (1 - top_img[:, :, 3])
-        # for x, y in itertools.product(range(bottom_img.shape[0]), range(bottom_img.shape[1])):
-        #     alpha1 = bottom_img[x, y, 3]
-        #     alpha2 = top_img[x, y, 3]
-        #     for channel in range(3):
-        #         result[x, y, channel] = alpha2 * top_img[x, y, channel] + alpha1 * (1 - alpha2) * bottom_img[
-        #             x, y, channel]
-        #     result[x, y, 3] = 1 - (1 - alpha1) * (1 - alpha2)
         return result
 
     def check_if_point_is_valid(self, point):
@@ -879,7 +871,7 @@ class SingleAnimation:
             debug(f'[{round(dt*fps)}/{round(fps*duration)} ({int(100*(round(dt*fps))/(fps*duration))}%), t={t(dt): .3f}]', short=False)
             if read_only:
                 film.frame_counter += 1
-            elif math.isclose(t(dt), prev_t, abs_tol=1e-9):
+            elif math.isclose(t(dt), prev_t, abs_tol=1e-5):
                 film.add_frame(last_frame, save_ram=save_ram)
             else:
                 last_frame = self.frame_generator(t(dt))
