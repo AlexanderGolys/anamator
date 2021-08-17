@@ -621,6 +621,109 @@ def intervals_into_divisions(division, speed, resolution, filename='intervals_in
     animator.render(filename, settings, True, id_, speed=speed)
 
 
+def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filename='bold.mp4', id_='bold', speed=1):
+    downing_settings = {
+            'sampling rate': 3,
+            'thickness': 10,
+            'blur': 3,
+            'color': 'melon'
+        }
+    fill_downing_settings = downing_settings = {
+            'sampling rate': 1,
+            'thickness': 0,
+            'blur': 0,
+            'color': objects.ColorParser.parse_and_add_alpha('melon', .9)
+        }
+
+    def generate_frame(t):
+        t1 = min(t, 1)
+        frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
+        func = objects.Function(foo)
+        y_bounds = (func.inf(x_bounds)-1, func.sup(x_bounds)+1)
+        frame.add_axis_surface(x_bounds, y_bounds)
+        for part in zip(interval[:-1], interval[1:]):
+            downing = objects.Function(basic_func.SingleAnimation.blend_functions((foo, make_const(func.inf(part))),
+                                                                                  t1))
+            frame.axis_surface.blit_parametric_object(downing, settings=downing_settings,
+                                                      queue=True, interval_of_param=part)
+            filling = objects.FilledObject(downing, objects.Function(basic_func.SingleAnimation.blend_functions((downing, lambda h: 0), t1)), part)
+            frame.axis_surface.blit_filled_object(filling, fill_downing_settings, interval_of_param=part, queue=True)
+        frame.axis_surface.blit_parametric_queue()
+        frame.axis_surface.blit_filled_queue()
+        frame.blit_parametric_object(func, settings=objects.PredefinedSettings.fhd_foo)
+        for x in interval:
+            line = objects.ParametricObject(make_const(x), lambda y: y, y_bounds)
+            frame.axis_surface.blit_dashed_curve(line, 40, settings=objects.PredefinedSettings.t5b2gray, queue=True)
+        frame.axis_surface.blit_parametric_queue()
+        frame.blit_axes(objects.PredefinedSettings.fhd_axis)
+
+        if t > 1 and not math.isclose(t, 1):
+            t2 = min(t - 1, 1)
+            color = (0, 0, 0, 3*t2/4)
+            gray_wall1 = objects.FilledObject(objects.Function(const=y_bounds[0]), objects.Function(const=y_bounds[1]),
+                                              (x_bounds[0], bolded_interval[0]))
+            gray_wall2 = objects.FilledObject(objects.Function(const=y_bounds[0]), objects.Function(const=y_bounds[1]),
+                                              (bolded_interval[1], x_bounds[1]))
+            wall_settings = {
+                'sampling rate': 2,
+                'thickness': 0,
+                'blur': 0,
+                'color': color
+            }
+            frame.axis_surface.blit_filled_object(gray_wall1, wall_settings, queue=True)
+            frame.axis_surface.blit_filled_object(gray_wall2, wall_settings, queue=True)
+            frame.axis_surface.blit_filled_queue()
+
+            middle = np.mean(y_bounds)
+            line_bounds = t2 * np.array(y_bounds) + (1 - t2) * np.array([middle, middle])
+            line1 = objects.ParametricObject(make_const(bolded_interval[0]), lambda y: y, line_bounds)
+            line2 = objects.ParametricObject(make_const(bolded_interval[1]), lambda y: y, line_bounds)
+            frame.axis_surface.blit_parametric_object(line1, objects.PredefinedSettings.t10b4gray, queue=True)
+            frame.axis_surface.blit_parametric_object(line2, objects.PredefinedSettings.t10b4gray, queue=True)
+            frame.axis_surface.blit_parametric_queue()
+
+        if t > 2 and not math.isclose(t, 2):
+            t3 = min(t-2, 1)
+
+            def radius(x):
+                if x <= 3 / 4:
+                    return int(16 * x)
+                if x <= 1:
+                    return int(-16 * x + 24)
+                else:
+                    return 8
+
+            settings_point_interior = {
+                'sampling rate': 1,
+                'thickness': 1,
+                'blur': 0,
+                'color': 'white',
+                'blur kernel': 'none'
+            }
+            dot = objects.BitmapDisk(radius(t3), 'white', 1)
+            frame.axis_surface.blit_bitmap_object((func.argmin(bolded_interval), func.inf(bolded_interval)), dot,
+                                                  settings_point_interior, surface_coordinates=True)
+
+            const_settings = {
+                'sampling rate': 3,
+                'thickness': 2*radius(t3),
+                'blur': 3,
+                'color': 'melon'
+            }
+            bolded_const = objects.Function(const=func.inf(bolded_interval))
+            frame.axis_surface.blit_parametric_object(bolded_const, const_settings, bolded_interval)
+        frame.blit_axis_surface()
+        return frame
+
+    animator = basic_func.SingleAnimation(generate_frame, objects.PredefinedSettings.slow_differential)
+    settings = {
+        'fps': 24,
+        'resolution': resolution,
+        'duration': 3
+    }
+    animator.render(filename, settings, save_ram=True, id_=id_, speed=speed, read_only=False)
+
+
 if __name__ == '__main__':
     sys.setrecursionlimit(3000)
     # make_lower_sum_film()
@@ -679,9 +782,4 @@ if __name__ == '__main__':
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .6, speed=1, resolution=FHD, filename='abs6.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .65, speed=1, resolution=FHD, filename='abs65.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .4, speed=1, resolution=FHD, filename='abs4.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .45, speed=1, resolution=FHD, filename='abs45.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .55, speed=1, resolution=FHD, filename='abs55.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .35, speed=1, resolution=FHD, filename='abs35.mp4')
+    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: 2*abs(math.sin(x)), resolution=HD, speed=1)

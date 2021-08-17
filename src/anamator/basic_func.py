@@ -11,6 +11,7 @@ import cv2
 from PIL import Image
 
 from . import objects
+from .objects import normalize_function, make_periodic
 
 
 DEBUG = True
@@ -498,7 +499,7 @@ class AxisSurface(Surface):
         circle = objects.Ellipse(coords, radius, radius)
         self.blit_parametric_object(circle, settings, circle.bounds, queue=queue)
 
-    def blit_bitmap_object(self, center, img_object, settings, surface_coordinates=False):
+    def blit_bitmap_object(self, center, img_object, settings, surface_coordinates=True):
         """
         Blitting single bitmap object, alias for blit_distinct_bitmap_objects with only one object in a list.
         """
@@ -867,16 +868,6 @@ class IntervalSequenceAnimation(SingleAnimation):
         frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
         super().__init__(frame_generator, differential)
 
-
-def normalize_function(foo, interval=(0, 1), precision=100):
-    start, end = interval
-    norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
-    # print(norm)
-    return lambda x: foo(x)/norm
-
-
-def make_periodic(foo, t=1):
-    return lambda x: foo(x-x//t*t)
 
 
 if __name__ == '__main__':

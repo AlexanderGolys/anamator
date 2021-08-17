@@ -49,6 +49,11 @@ class ColorParser:
 
         return color
 
+    @staticmethod
+    def parse_and_add_alpha(color, alpha):
+        c = ColorParser.parse_color(color)
+        return c[:3] + (alpha,)
+
 
 def normalize_function(foo, interval=(0, 1), precision=100):
     start, end = interval
@@ -109,6 +114,13 @@ class PredefinedSettings:
             'color': 'white'
         }
     fhd_foo = t10b4white
+
+    t10b4gray = {
+            'sampling rate': 3,
+            'thickness': 10,
+            'blur': 4,
+            'color': 'gray'
+        }
 
     t2b0white = {
             'sampling rate': 3,
@@ -368,7 +380,11 @@ class Function(ParametricObject):
         points = sorted(list(set(points)))
         return list(zip(points[:-1], points[1:]))
 
+    def argmin(self, interval=(0, 1), precision=100):
+        return min([(x, self(x)) for x in np.linspace(*interval, precision)], key=lambda x: x[1])[0]
 
+    def argmax(self, interval=(0, 1), precision=100):
+        return max([(x, self(x)) for x in np.linspace(*interval, precision)], key=lambda x: x[1])[0]
 
 
 class FilledObject(Object):
