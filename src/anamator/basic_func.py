@@ -135,9 +135,10 @@ class Surface:
             raise ValueError
 
         result = np.zeros(bottom_img.shape)
-        for channel in range(3):
-            result[:, :, channel] = top_img[:, :, 3] * top_img[:, :, channel] + \
-                               bottom_img[:, :, 3] * (1 - top_img[:, :, 3]) * bottom_img[:, :, channel]
+        alpha1 = np.array([top_img[:, :, 3], top_img[:, :, 3], top_img[:, :, 3]]).swapaxes(0, 2).swapaxes(0, 1)
+        alpha2 = np.array([bottom_img[:, :, 3], bottom_img[:, :, 3], bottom_img[:, :, 3]]).swapaxes(0, 2).swapaxes(0, 1)
+
+        result[:, :, :3] = alpha1 * top_img[:, :, :3] + alpha2 * (1 - alpha1) * bottom_img[:, :, :3]
         result[:, :, 3] = 1 - (1 - bottom_img[:, :, 3]) * (1 - top_img[:, :, 3])
         # for x, y in itertools.product(range(bottom_img.shape[0]), range(bottom_img.shape[1])):
         #     alpha1 = bottom_img[x, y, 3]
