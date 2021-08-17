@@ -868,7 +868,7 @@ class IntervalSequenceAnimation(SingleAnimation):
         super().__init__(frame_generator, differential)
 
 
-def normalize_function(foo, interval=(0, 1), precision=100):
+def normalize_function(foo, interval=(0, 1), precision=1000):
     start, end = interval
     norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
     # print(norm)

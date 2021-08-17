@@ -139,6 +139,7 @@ class PredefinedSettings:
 
     fast_differential = make_periodic(normalize_function(lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0))
 
+    exp_differential = make_periodic(normalize_function(lambda x: math.exp(-100*(x-1/2)**2)))
 
 class Object(ABC):
     """

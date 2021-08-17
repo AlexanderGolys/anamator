@@ -621,6 +621,35 @@ def intervals_into_divisions(division, speed, resolution, filename='intervals_in
     animator.render(filename, settings, True, id_, speed=speed)
 
 
+def hill(speed, resolution, filename='hill.mp4'):
+    seq = [lambda x: 0,
+           lambda x: 8*math.exp(-(x-3)**2),
+           lambda x: 8*math.exp(-(x-3)**2) - 3*math.exp(-(x-5.3)**4)]
+
+    settings_rec_positive = {
+        'sampling rate': 2,
+        'thickness': 0,
+        'blur': 3,
+        'color': 'tea green'
+    }
+
+    def fame_generator(foo):
+        frame = basic_func.OneAxisFrame(resolution, 'black', 0, 0)
+        frame.add_axis_surface((0, 8), (-5, 10))
+        ground = objects.FilledObject(objects.Function(const=-5), objects.Function(foo), (0, 8))
+        frame.axis_surface.blit_filled_object(ground, settings_rec_positive)
+        frame.blit_axis_surface()
+        return frame
+
+    animator = basic_func.FunctionSequenceAnimation(seq, objects.PredefinedSettings.exp_differential, fame_generator)
+    settings = {
+        'fps': 24,
+        'resolution': resolution,
+        'duration': 2
+    }
+    animator.render(filename, settings, save_ram=True, id_='koparaexp', speed=speed)
+
+
 if __name__ == '__main__':
     sys.setrecursionlimit(3000)
     # make_lower_sum_film()
@@ -679,9 +708,4 @@ if __name__ == '__main__':
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .6, speed=1, resolution=FHD, filename='abs6.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .65, speed=1, resolution=FHD, filename='abs65.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .4, speed=1, resolution=FHD, filename='abs4.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .45, speed=1, resolution=FHD, filename='abs45.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .55, speed=1, resolution=FHD, filename='abs55.mp4')
-    absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + .35, speed=1, resolution=FHD, filename='abs35.mp4')
+    hill(.1, FHD)
