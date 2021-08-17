@@ -484,6 +484,6 @@ class PolygonalChain(ParametricObject):
 
 
 class BitmapDisk(BitmapCircle):
-    def __init__(self, radius, color, opacity, padding=5):
+    def __init__(self, radius, color, opacity, padding=0):
         super().__init__(radius, color, radius, opacity, padding)
 
