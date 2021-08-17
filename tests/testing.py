@@ -361,6 +361,12 @@ def test_3_axis_frame():
     frame.generate_png('test_3_frames.png')
 
 
+def stupid_test2():
+    arr1 = np.array([[1, 2], [4, 5]])
+    arr2 = np.array([[1, 2], [4, 5]])
+    print(arr2*arr1)
+
+
 if __name__ == '__main__':
     init()
     basic_test()
@@ -371,3 +377,4 @@ if __name__ == '__main__':
 #     stupid_test()
 #     test_blitting_images()
 #     test_3_axis_frame()
+#     stupid_test2()

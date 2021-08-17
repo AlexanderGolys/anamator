@@ -814,4 +814,4 @@ if __name__ == '__main__':
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
-    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: 2*abs(math.sin(x)), resolution=FHD, speed=.25)
+    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: 2*abs(math.sin(x)), resolution=HD, speed=1)

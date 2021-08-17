@@ -3,6 +3,7 @@ import functools
 import math
 import os
 import copy
+import deprecation
 
 import numpy as np
 import scipy.signal
@@ -86,7 +87,8 @@ class Surface:
         img.save(filename)
 
     @staticmethod
-    def merge_images(bottom_img, top_img):
+    @deprecation.deprecated(deprecated_in='1.0.1', details='Too slow.')
+    def slower_merge_images(bottom_img, top_img):
         """
         Puts img2 on top of img1.
         Args:
@@ -111,6 +113,39 @@ class Surface:
             for channel in range(3):
                 result[x, y, channel] = alpha2 * top_img[x, y, channel] + alpha1 * (1 - alpha2) * bottom_img[x, y, channel]
             result[x, y, 3] = 1-(1-alpha1)*(1-alpha2)
+        return result
+
+    @staticmethod
+    def merge_images(bottom_img, top_img):
+        """
+        Puts img2 on top of img1.
+        Args:
+            bottom_img: First (bottom) image.
+            top_img: Second (top) image.
+
+        Returns:
+            np.array: Merged image.
+
+        Raises:
+            ValueError: Image are not in the same shape.
+        """
+        debug('merging images', short=False)
+
+        if bottom_img.shape != top_img.shape:
+            raise ValueError
+
+        result = np.zeros(bottom_img.shape)
+        for channel in range(3):
+            result[:, :, channel] = top_img[:, :, 3] * top_img[:, :, channel] + \
+                               bottom_img[:, :, 3] * (1 - top_img[:, :, 3]) * bottom_img[:, :, channel]
+        result[:, :, 3] = 1 - (1 - bottom_img[:, :, 3]) * (1 - top_img[:, :, 3])
+        # for x, y in itertools.product(range(bottom_img.shape[0]), range(bottom_img.shape[1])):
+        #     alpha1 = bottom_img[x, y, 3]
+        #     alpha2 = top_img[x, y, 3]
+        #     for channel in range(3):
+        #         result[x, y, channel] = alpha2 * top_img[x, y, channel] + alpha1 * (1 - alpha2) * bottom_img[
+        #             x, y, channel]
+        #     result[x, y, 3] = 1 - (1 - alpha1) * (1 - alpha2)
         return result
 
     def check_if_point_is_valid(self, point):
