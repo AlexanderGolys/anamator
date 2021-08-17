@@ -45,7 +45,7 @@ class Surface:
         self.res = res
         self.bitmap = np.zeros(self.res + (4,))
 
-    def blit_surface(self, surface, ll_corner, ur_corner=None):
+    def blit_surface(self, surface, ll_corner, ur_corner=None, blank=False):
         """
         Merge surfaces. It scales the surface if lower right corner is provided.
 
@@ -54,6 +54,7 @@ class Surface:
             ll_corner (tuple of ints): Lower left corner in pixel coordinates.
             ur_corner (tuple of ints, optional): Upper right corner in pixel coordinates. If provided surface will
                 be scaled to fill given box. If None, surface wil be blitted without scaling.
+            blank (bool, optional): If True images will not be merged.
 
         TODO:
             Scaling.
@@ -63,8 +64,12 @@ class Surface:
         if ur_corner is None:
             try:
                 x, y = ll_corner
-                self.bitmap[x:x+surface.res[0], y:y+surface.res[1], :] = \
-                    AxisSurface.merge_images(self.bitmap[x:x+surface.res[0], y:y+surface.res[1], :], surface.bitmap)
+                if not blank:
+                    self.bitmap[x:x+surface.res[0], y:y+surface.res[1], :] = \
+                        AxisSurface.merge_images(self.bitmap[x:x+surface.res[0], y:y+surface.res[1], :], surface.bitmap)
+                else:
+                    self.bitmap[x:x + surface.res[0], y:y + surface.res[1], :] = surface.bitmap
+                    self.bitmap[:, :, 3] = 1
             except IndexError:
                 raise IndexError("Given surface is too big.")
 
@@ -638,13 +643,13 @@ class OneAxisFrame(Frame):
         """
         self.axis_surface.blit_parametric_object(obj, settings)
 
-    def blit_axis_surface(self):
+    def blit_axis_surface(self, blank=True):
         """
         Blitting all queues and axis surface to the frame surface.
         """
         self.axis_surface.blit_parametric_queue()
         self.axis_surface.blit_filled_queue()
-        self.blit_surface(self.axis_surface, (self.x_padding, self.y_padding))
+        self.blit_surface(self.axis_surface, (self.x_padding, self.y_padding), blank=True)
 
     def blit_x_grid(self, settings, interval, length):
         """

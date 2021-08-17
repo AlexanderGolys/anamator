@@ -363,11 +363,11 @@ def test_3_axis_frame():
 
 if __name__ == '__main__':
     init()
-    # basic_test()
+    basic_test()
     # test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
     # testing_dashed_line()
     # test_blitting_recs()
 #     stupid_test()
 #     test_blitting_images()
-    test_3_axis_frame()
+#     test_3_axis_frame()

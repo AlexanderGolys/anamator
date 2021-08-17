@@ -1,6 +1,7 @@
 import math
 import functools
 import sys
+import copy
 
 import numpy as np
 
@@ -645,11 +646,11 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
             downing = objects.Function(basic_func.SingleAnimation.blend_functions((foo, make_const(func.inf(part))),
                                                                                   t1))
             frame.axis_surface.blit_parametric_object(downing, settings=downing_settings,
-                                                      queue=True, interval_of_param=part)
-            filling = objects.FilledObject(downing, objects.Function(basic_func.SingleAnimation.blend_functions((downing, lambda h: 0), t1)), part)
+                                                      queue=False, interval_of_param=part)
+            filling = objects.FilledObject(downing, objects.Function(basic_func.SingleAnimation.blend_functions((copy.copy(downing), lambda h: 0), t1)), part)
             frame.axis_surface.blit_filled_object(filling, fill_downing_settings, interval_of_param=part, queue=True)
-        frame.axis_surface.blit_parametric_queue()
         frame.axis_surface.blit_filled_queue()
+        frame.axis_surface.blit_parametric_queue()
         frame.blit_parametric_object(func, settings=objects.PredefinedSettings.fhd_foo)
         for x in interval:
             line = objects.ParametricObject(make_const(x), lambda y: y, y_bounds)
@@ -693,6 +694,17 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
                 else:
                     return 8
 
+            const_settings = {
+                'sampling rate': 3,
+                'thickness': 2*radius(t3),
+                'blur': 3,
+                'color': 'melon'
+            }
+            bolded_const = objects.Function(const=func.inf(bolded_interval))
+            argmin = func.argmin(bolded_interval)
+            bolded_const_int = [t3*bolded_interval[0] + (1-t3)*argmin, t3*bolded_interval[1] + (1-t3)*argmin]
+            frame.axis_surface.blit_parametric_object(bolded_const, const_settings, bolded_const_int)
+
             settings_point_interior = {
                 'sampling rate': 1,
                 'thickness': 1,
@@ -701,17 +713,8 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
                 'blur kernel': 'none'
             }
             dot = objects.BitmapDisk(radius(t3), 'white', 1)
-            frame.axis_surface.blit_bitmap_object((func.argmin(bolded_interval), func.inf(bolded_interval)), dot,
+            frame.axis_surface.blit_bitmap_object((argmin, func(argmin)), dot,
                                                   settings_point_interior, surface_coordinates=True)
-
-            const_settings = {
-                'sampling rate': 3,
-                'thickness': 2*radius(t3),
-                'blur': 3,
-                'color': 'melon'
-            }
-            bolded_const = objects.Function(const=func.inf(bolded_interval))
-            frame.axis_surface.blit_parametric_object(bolded_const, const_settings, bolded_interval)
         frame.blit_axis_surface()
         return frame
 
@@ -811,4 +814,4 @@ if __name__ == '__main__':
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
-    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: 2*abs(math.sin(x)), resolution=HD, speed=1)
+    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: 2*abs(math.sin(x)), resolution=FHD, speed=.25)
