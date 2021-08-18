@@ -34,6 +34,26 @@ class ColorParser:
             'red pastel 1': (252, 185, 178, 1),
             'apricot': (254, 208, 187, 1),
             'red pastel 2': (254, 208, 187, 1),
+            'champagne pink': (255, 229, 217, 1),
+            'indian red': (201, 93, 99, 1),
+            'orange yellow crayola': (255, 214, 112, 1),
+            'blue bell': (143, 149, 211, 1),
+            'thistle': (211, 196, 227, 1),
+            'pistachio': (211, 196, 227, 1),
+            'nyanza': (228, 253, 225, 1),
+            'columbia blue': (206, 229, 242, 1),
+            'beau blue': (172, 203, 225, 1),
+            'cerulean frost': (124, 152, 179, 1),
+            'silver pink': (213, 176, 172, 1),
+            'tuscany': (206, 160, 174, 1),
+            'eggplant': (104, 69, 81, 1),
+            'eton blue': (186, 198, 159, 1),
+            'cadet gray': (153, 161, 166, 1),
+            'beige': (237, 240, 218, 1),
+            'irresistible': (170, 68, 101, 1),
+            'grullo': (168, 155, 140, 1),
+            'banana mania': (240, 223, 173, 1),
+            'coyote brown': (143, 92, 56, 1)
         }
         if isinstance(color, str) and color[0] != '#':
             try:
@@ -53,6 +73,10 @@ class ColorParser:
     def parse_and_add_alpha(color, alpha):
         c = ColorParser.parse_color(color)
         return c[:3] + (alpha,)
+
+    @staticmethod
+    def blend(c1, c2, t):
+        return np.array(ColorParser.parse_color(c1))*(1-t) + np.array(ColorParser.parse_color(c2))*t
 
 
 def normalize_function(foo, interval=(0, 1), precision=100):

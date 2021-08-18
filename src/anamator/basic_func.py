@@ -871,7 +871,7 @@ class SingleAnimation:
             debug(f'[{round(dt*fps)}/{round(fps*duration)} ({int(100*(round(dt*fps))/(fps*duration))}%), t={t(dt): .3f}]', short=False)
             if read_only:
                 film.frame_counter += 1
-            elif math.isclose(t(dt), prev_t, abs_tol=1e-5):
+            elif math.isclose(t(dt), prev_t, abs_tol=1/(10*precision)):
                 film.add_frame(last_frame, save_ram=save_ram)
             else:
                 last_frame = self.frame_generator(t(dt))
@@ -900,7 +900,6 @@ class IntervalSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_interval):
         frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
         super().__init__(frame_generator, differential)
-
 
 
 if __name__ == '__main__':

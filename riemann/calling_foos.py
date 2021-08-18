@@ -28,4 +28,14 @@ if __name__ == '__main__':
     # triple_moving(divisions=seq, speed=.33, resolution=FHD)
     # absolute_value(lambda x: -x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12 + 1, speed=.1, resolution=FHD,
     #                filename='abs_fast.mp4', id_='abs_fast')
-    hill(.1, FHD, 'exp_hill.mp4')
+    # hill(.1, FHD, 'exp_hill.mp4')
+    seq = [[0, .1, .1, .2, .4, .4, .55, .63, .71, .85, 1],
+           [0, .12, .18, .23, .36, .36, .5, .6, .7, .85, 1],
+           [0, .05, .11, .2, .3, .38, .45, .64, .7, .9, 1],
+           [0, .1, .1, .1, .3, .3, .3, .7, .7, .7, 1],
+           [0, .08, .15, .24, .36, .45, .6, .75, .88, .95, 1],]
+
+    # smooth_animate_divisions(seq, FHD, .25, bigger_ab_at=1, radius_foo=2)
+    # smooth_animate_divisions(seq, FHD, .25, bigger_ab_at=1, radius_foo=3)
+    bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: math.exp(x / 2) * math.sin(5 * x) ** 2 + 1.2,
+         resolution=FHD, speed=.25, light_color='beige', dark_color='irresistible')
