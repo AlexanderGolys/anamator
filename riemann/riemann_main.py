@@ -503,22 +503,22 @@ def decompose_shape(resolution, speed, filename='decompose.mp4'):
         frame.axis_surface.blit_filled_object(s6, blended_rec_settings, queue=True)
         frame.axis_surface.blit_filled_queue()
 
-        if t2 > .0001:
-            ceil = objects.FilledObject(objects.Function(const=20), objects.Function(const=30), x_bounds)
-            right_wall = objects.FilledObject(objects.Function(const=5), objects.Function(const=20), (-45, 1))
-            left_wall = objects.FilledObject(objects.Function(const=5), objects.Function(const=20), (18.55, 20))
-            floor = objects.FilledObject(objects.Function(const=-25), objects.Function(const=5), x_bounds)
-            settings_walls = {
-                'sampling rate': 1,
-                'thickness': 0,
-                'blur': 0,
-                'color': (0, 0, 0, t2)
-            }
-            frame.axis_surface.blit_filled_object(ceil, settings_walls, queue=True)
-            frame.axis_surface.blit_filled_object(right_wall, settings_walls, queue=True)
-            frame.axis_surface.blit_filled_object(left_wall, settings_walls, queue=True)
-            frame.axis_surface.blit_filled_object(floor, settings_walls, queue=True)
-            frame.axis_surface.blit_filled_queue()
+        # if t2 > .0001:
+        #     ceil = objects.FilledObject(objects.Function(const=20), objects.Function(const=30), x_bounds)
+        #     right_wall = objects.FilledObject(objects.Function(const=5), objects.Function(const=20), (-45, 1))
+        #     left_wall = objects.FilledObject(objects.Function(const=5), objects.Function(const=20), (18.55, 20))
+        #     floor = objects.FilledObject(objects.Function(const=-25), objects.Function(const=5), x_bounds)
+        #     settings_walls = {
+        #         'sampling rate': 1,
+        #         'thickness': 0,
+        #         'blur': 0,
+        #         'color': (0, 0, 0, t2)
+        #     }
+        #     frame.axis_surface.blit_filled_object(ceil, settings_walls, queue=True)
+        #     frame.axis_surface.blit_filled_object(right_wall, settings_walls, queue=True)
+        #     frame.axis_surface.blit_filled_object(left_wall, settings_walls, queue=True)
+        #     frame.axis_surface.blit_filled_object(floor, settings_walls, queue=True)
+        #     frame.axis_surface.blit_filled_queue()
 
         if t3 > .0001:
             x_axis = objects.Function(const=10)
@@ -558,7 +558,7 @@ def decompose_shape(resolution, speed, filename='decompose.mp4'):
         'resolution': resolution,
         'duration': 3
     }
-    animation.render(filename, settings, save_ram=True, id_='op', speed=speed, precision=10000)
+    animation.render(filename, settings, save_ram=True, id_='op', speed=speed, precision=2000)
 
 
 def get_triple_frame(division, resolution=HD, second_color='red pastel 2'):

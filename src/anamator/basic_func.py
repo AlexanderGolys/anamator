@@ -902,6 +902,41 @@ class IntervalSequenceAnimation(SingleAnimation):
         super().__init__(frame_generator, differential)
 
 
+class MultiDifferentialAnimation:
+    def __init__(self, frame_generator, *differentials):
+        self.frame_generator = frame_generator
+        self.differentials = differentials
+
+    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False,
+               precision=1000, speed=1):
+        duration = settings['duration']
+        film = Film(settings['fps'], settings['resolution'], id=id_)
+        fps = settings['fps'] // speed
+
+        def integral(foo):
+            return lambda h: sum([foo(k / (fps * precision)) for k in range(math.floor(h * fps) * precision)]) / (
+                                  fps * precision)
+        t = [integral(differential) for differential in self.differentials]
+
+        prev_t = [math.nan for _ in self.differentials]
+        last_frame = None
+        for dt in np.arange(start_from / fps, duration, 1 / fps):
+            debug(
+                f'[{round(dt * fps)}/{round(fps * duration)} '
+                f'({int(100 * (round(dt * fps)) / (fps * duration))}%)]',
+                short=False)
+            current_t = [dif(dt) for dif in t]
+            if read_only:
+                film.frame_counter += 1
+            elif all(np.isclose(current_t, prev_t, atol=1 / (10 * precision))):
+                film.add_frame(last_frame, save_ram=save_ram)
+            else:
+                last_frame = self.frame_generator(*current_t)
+                film.add_frame(last_frame, save_ram=save_ram)
+            prev_t = copy.copy(current_t)
+        film.render(filename, save_ram)
+
+
 if __name__ == '__main__':
     """
     

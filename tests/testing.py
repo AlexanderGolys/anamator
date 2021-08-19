@@ -1,9 +1,13 @@
 import math
 import os
+import copy
 
 import numpy as np
 
 from src.anamator import basic_func, objects
+
+
+FHD = (1920, 1080)
 
 
 def testing_dashed_line():
@@ -367,9 +371,50 @@ def stupid_test2():
     print(arr2*arr1)
 
 
+def test_multi():
+    def make_exp_diff(x0, c):
+        return basic_func.normalize_function(lambda x: math.exp(-c*(x-x0)**2))
+    differentials_80 = [make_exp_diff(k, 80) for k in np.linspace(.25, .75, 30)]
+    differentials_100 = [make_exp_diff(k, 100) for k in np.linspace(.25, .75, 30)]
+    differentials_200 = [make_exp_diff(k, 200) for k in np.linspace(.25, .75, 30)]
+    differentials = differentials_80 + differentials_100 + differentials_200
+
+    def radius(x):
+        if x <= 3/4:
+            return int(12*x)
+        if x <= 1:
+            return int(-16*x+21)
+        else:
+            return 5
+
+    settings_dots = {
+        'blur': 3,
+        'blur kernel': 'box'
+    }
+
+    def generate_frame(*t_list):
+        frame = basic_func.OneAxisFrame(FHD)
+        # print(len(set([radius(t) for t in t_list])))
+        dots = [objects.BitmapDisk(radius(t), 'white', 1) for t in t_list]
+        centers = [(int(k), 270) for k in np.linspace(100, 1620, 30)] \
+                  + [(int(k), 540) for k in np.linspace(200, 1720, 30)] \
+                  + [(int(k), 810) for k in np.linspace(300, 1820, 30)]
+        frame.blit_distinct_bitmap_objects(centers, dots, settings_dots)
+        return frame
+
+    settings = {
+        'fps': 24,
+        'duration': 1,
+        'resolution': FHD
+    }
+
+    animator = basic_func.MultiDifferentialAnimation(generate_frame, *differentials)
+    animator.render('test_multi.mp4', settings, save_ram=True, speed=.33)
+
+
 if __name__ == '__main__':
-    init()
-    basic_test()
+    # init()
+    # basic_test()
     # test_function_sequence()
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
     # testing_dashed_line()
@@ -378,3 +423,4 @@ if __name__ == '__main__':
 #     test_blitting_images()
 #     test_3_axis_frame()
 #     stupid_test2()
+    test_multi()
