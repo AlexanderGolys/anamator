@@ -119,7 +119,7 @@ def animate_zoom(no_of_points, no_of_fixed, radius, interval,speed, resolution, 
 
 if __name__ == '__main__':
     # print(random_points(30))
-    frame_gen(50,25,(0,3))
+    # frame_gen(50,25,(0,3))
     # print('dupa')
     # ctrs = [(1,0), (1.5,0), (2,0), (3,0), (3.7,0),(5,0), (5.6,0), (6,0), (8,0), (8,1)]
     # r = .4
