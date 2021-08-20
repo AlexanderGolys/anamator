@@ -1,6 +1,7 @@
 import math
 import os
 import copy
+import itertools
 
 import numpy as np
 
@@ -376,16 +377,19 @@ def test_multi():
         return basic_func.normalize_function(lambda x: math.exp(-c*(x-x0)**2))
     differentials_80 = [make_exp_diff(k, 80) for k in np.linspace(.25, .75, 30)]
     differentials_100 = [make_exp_diff(k, 100) for k in np.linspace(.25, .75, 30)]
-    differentials_200 = [make_exp_diff(k, 200) for k in np.linspace(.25, .75, 30)]
-    differentials = differentials_80 + differentials_100 + differentials_200
+    differentials_200 = [make_exp_diff(k, 70) for k in np.linspace(.25, .75, 10)]*10
+    differentials = differentials_200
 
     def radius(x):
         if x <= 3/4:
-            return int(12*x)
+            return int(24*x)
         if x <= 1:
-            return int(-16*x+21)
+            return int(-32*x+40)
         else:
-            return 5
+            return 8
+
+    def no_radius(x):
+        return int(3*x)
 
     settings_dots = {
         'blur': 3,
@@ -393,23 +397,34 @@ def test_multi():
     }
 
     def generate_frame(*t_list):
-        frame = basic_func.OneAxisFrame(FHD)
+        frame = basic_func.OneAxisFrame((1000, 1000))
         # print(len(set([radius(t) for t in t_list])))
-        dots = [objects.BitmapDisk(radius(t), 'white', 1) for t in t_list]
-        centers = [(int(k), 270) for k in np.linspace(100, 1620, 30)] \
-                  + [(int(k), 540) for k in np.linspace(200, 1720, 30)] \
-                  + [(int(k), 810) for k in np.linspace(300, 1820, 30)]
+        bitmap_penis = \
+            [[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+             [0, 0, 0, 0, 1, 1, 0, 0, 0, 0],
+             [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+             [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+             [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+             [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
+             [0, 0, 1, 1, 1, 1, 1, 1, 0, 0],
+             [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+             [0, 1, 1, 1, 1, 1, 1, 1, 1, 0],
+             [0, 0, 1, 1, 0, 0, 1, 1, 0, 0]]
+        penis = {10*y + x for x, y in itertools.product(range(10), range(10)) if bitmap_penis[9-x][y] == 1}
+        dots = [objects.BitmapDisk(radius(t), 'white', 1) if i in penis else objects.BitmapDisk(no_radius(t), 'white', 1) for i, t in enumerate(t_list)]
+        centers = [(int(k), int(m)) for k, m in itertools.product(np.linspace(100, 900, 10), np.linspace(100, 900, 10))]
+        centers.sort(key=lambda x: 10*x[0] + x[1])
         frame.blit_distinct_bitmap_objects(centers, dots, settings_dots)
         return frame
 
     settings = {
         'fps': 24,
         'duration': 1,
-        'resolution': FHD
+        'resolution': (1000, 1000)
     }
 
     animator = basic_func.MultiDifferentialAnimation(generate_frame, *differentials)
-    animator.render('test_multi.mp4', settings, save_ram=True, speed=.33)
+    animator.render('test_multi2.mp4', settings, save_ram=True, speed=.5)
 
 
 if __name__ == '__main__':

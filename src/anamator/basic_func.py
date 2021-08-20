@@ -243,6 +243,31 @@ class AxisSurface(Surface):
         # Affine transformation
         return tuple(map(round, np.array(point) @ transformation_matrix + np.array(self.zero_coords)))
 
+    @staticmethod
+    def static_transform_to_pixel_coordinates(point, x_bounds, y_bounds, resolution):
+        """
+        Returns pixel coordinates of the point in abstract coordinates using given bounds
+
+        Args:
+            point (tuple of ints): Point to be transformed.
+
+        Returns:
+            tuple of ints: Pixel coordinates of the point.
+        """
+        debug('transforming coordinates', short=True)
+        x_res, y_res = resolution
+        x_lower_bound, x_upper_bound = x_bounds
+        y_lower_bound, y_upper_bound = y_bounds
+
+        transformation_matrix = np.asarray([[x_res/(x_upper_bound-x_lower_bound), 0],
+                                            [0, y_res/(y_upper_bound-y_lower_bound)]])
+
+        zero = (-x_bounds[0]*resolution[0]/(x_bounds[1]-x_bounds[0]),
+                -y_bounds[0]*resolution[1]/(y_bounds[1]-y_bounds[0]))
+
+        # Affine transformation
+        return tuple(map(round, np.array(point) @ transformation_matrix + np.array(zero)))
+
     def check_if_point_is_valid(self, point, abstract_coords=False):
         """
         Check if point in pixel coordinates is valid point on this surface.
@@ -914,7 +939,7 @@ class MultiDifferentialAnimation:
         fps = settings['fps'] // speed
 
         def integral(foo):
-            return lambda h: sum([foo(k / (fps * precision)) for k in range(math.floor(h * fps) * precision)]) / (
+            return lambda h: sum([foo((k+1) / (fps * precision)) for k in range(math.floor(h * fps) * precision)]) / (
                                   fps * precision)
         t = [integral(differential) for differential in self.differentials]
 
