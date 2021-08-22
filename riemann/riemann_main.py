@@ -1195,9 +1195,9 @@ def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=
         line_0 = objects.ParametricObject(lambda x: 0, lambda y: y)
         line_1 = objects.ParametricObject(lambda x: 1, lambda y: y)
         frame.axis_surface.blit_dashed_curve(line_0, 40, 50, objects.PredefinedSettings.t2b0gray,
-                                             interval_of_param=(-.3, -.3 + 1.1*min(t0, 1)), queue=True)
+                                             interval_of_param=(-.55*min(t0, 1) + .25, .25 + .55*min(t0, 1)), queue=True)
         frame.axis_surface.blit_dashed_curve(line_1, 40, 50, objects.PredefinedSettings.t2b0gray,
-                                             interval_of_param=(-.3, -.3 + 1.1*min(t0, 1)), queue=False)
+                                             interval_of_param=(-.55*min(t0, 1) + .25, .25 + .55*min(t0, 1)), queue=False)
 
         frame.blit_axis_surface()
         if save:
@@ -1274,7 +1274,8 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
         return frame
 
     def differential(t):
-        return math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) < 0))
+        return math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) < 0)) if t < 2 \
+            else math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) > 0))/2
 
     differential = objects.normalize_function(differential, (0, .66))
 
@@ -1283,7 +1284,7 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
 
     settings = {
         'fps': 24,
-        'duration': 2,
+        'duration': 4,
         'resolution': resolution
     }
 
