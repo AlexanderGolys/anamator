@@ -8,9 +8,14 @@ import numpy as np
 import src.anamator.basic_func as basic_func
 import src.anamator.objects as objects
 
+
 HD = (1280, 720)
 FHD = (1920, 1080)
 SHIT = (640, 480)
+
+
+def linear(a=1):
+    return lambda x: a*x
 
 
 def find_sup(foo, interval, precision=50):
@@ -156,7 +161,7 @@ def smooth_animate_changing_integral(function_seq, int_seq, res):
         'sampling rate': 3,
         'thickness': 0,
         'blur': 0,
-        'color': 'green 2'
+        'color': 'thistle'
     }
     settings_function = {
         'sampling rate': 3,
@@ -324,13 +329,7 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
         'sampling rate': 3,
         'thickness': 0,
         'blur': 0,
-        'color': 'purple 1'
-    }
-    blended_rec_settings_red = {
-        'sampling rate': 3,
-        'thickness': 0,
-        'blur': 0,
-        'color': 'red'
+        'color': 'magic mint'
     }
     dash_settings = {
         'sampling rate': 10,
@@ -345,20 +344,26 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
     foos = [x[1] for x in divs_and_foo]
 
     def generate_frame(t):
-        division = basic_func.SingleAnimation.blend_lists(divs, t)
-        func = basic_func.SingleAnimation.blend_functions(foos, t)
+        # t0 = min(math.floor(t) + 2*(t - math.floor(t)), math.floor(t) + 1)
+        t0 = min(2*(t - math.floor(t)), 1)
+        t1 = max(math.floor(t), math.floor(t) + 2*(t - math.floor(t))-1)
+
+        division = basic_func.SingleAnimation.blend_lists(divs, t1)
+        func = basic_func.SingleAnimation.blend_functions(foos, t1)
         x_bounds = (division[0] - 1, division[-1] + 1)
         y_bounds = (-1, 3)
         frame = basic_func.OneAxisFrame(resolution, 'black', 5, 5)
         frame.add_axis_surface(x_bounds, y_bounds)
 
         for interval in zip(division[:-1], division[1:]):
-            inf = objects.Function(make_const(find_inf(func, interval)))
-            inf.add_bounds(interval)
-            blended_rec = objects.FilledObject(inf, objects.Function(lambda x: 0), interval)
+
+            level = objects.Function(const=t0*find_inf(func, interval) + (1-t0)*find_sup(func, interval)) \
+                if math.floor(t) % 2 == 0 \
+                else objects.Function(const=(1-t0)*find_inf(func, interval) + t0*find_sup(func, interval))
+            level.add_bounds(interval)
+            blended_rec = objects.FilledObject(level, objects.Function(const=0), interval)
             frame.axis_surface.blit_filled_object(blended_rec, blended_rec_settings, interval, queue=True)
         frame.axis_surface.blit_filled_queue()
-
         frame.axis_surface.blit_parametric_queue()
         frame.blit_axes(axis_settings, x_only=True)
         func_obj = objects.Function(func)
@@ -369,9 +374,8 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
         frame.blit_axis_surface()
         return frame
 
-    differential = lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0
-    animation = basic_func.SingleAnimation(generate_frame,
-                                           basic_func.normalize_function(basic_func.make_periodic(differential)))
+    differential = objects.PredefinedSettings.slow_differential
+    animation = basic_func.SingleAnimation(generate_frame, differential)
     settings = {
         'fps': 24,
         'resolution': resolution,
@@ -381,24 +385,29 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
 
 
 def smooth_animate_change_to_recs(division, foo, resolution, speed, filename='change_to_rec.mp4'):
-    foo_settings = objects.PredefinedSettings.t10b4white
+    foo_settings = {
+            'sampling rate': 3,
+            'thickness': 7,
+            'blur': 3,
+            'color': 'white'
+        }
     axis_settings = objects.PredefinedSettings.t5b2white
     blended_settings = {
             'sampling rate': 3,
-            'thickness': 10,
-            'blur': 4,
-            'color': 'purple 1'
+            'thickness': 7,
+            'blur': 3,
+            'color': 'vivid tangerine'
         }
     blended_rec_settings = {
             'sampling rate': 3,
             'thickness': 0,
             'blur': 0,
-            'color': 'purple 1'
+            'color': 'vivid tangerine'
         }
     dash_settings = {
             'sampling rate': 10,
             'thickness': 2,
-            'blur': 2,
+            'blur': 0,
             'color': 'gray'
         }
 
@@ -847,7 +856,6 @@ def absolute_value(func, speed, resolution, filename='abs.mp4', id_='abs'):
 
     animator = basic_func.FunctionSequenceAnimation((func, lambda t: -abs(func(t))),
                                                     objects.PredefinedSettings.fast_differential, gen_frame)
-    print(objects.PredefinedSettings.fast_differential(3/8))
     settings = {
         'fps': 24,
         'resolution': resolution,
@@ -913,6 +921,12 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
         'blur': 0,
         'color': dark_color
     }
+    dark_rec_settings = {
+        'sampling rate': 1,
+        'thickness': 0,
+        'blur': 0,
+        'color': dark_color
+    }
     foo_settings = {
         'sampling rate': 3,
         'thickness': 5,
@@ -943,6 +957,13 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
         'blur': 0,
         'color': 'gray'
     }
+    settings_point_interior = {
+        'sampling rate': 1,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'white',
+        'blur kernel': 'box'
+    }
 
     def radius(x):
         if x <= 3 / 4:
@@ -964,10 +985,13 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
         t1 = min(t, 1)
         t2 = min(t - 1, 1)
         t3 = min(t - 2, 1)
+        t4 = min(t - 3, 1)
+        t5 = min(t - 4, 1)
 
         frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
         func = objects.Function(foo)
         argmin = func.argmin(bolded_interval)
+        argmax = func.argmax(bolded_interval)
         y_bounds = (-1, func.sup(x_bounds)+1)
         frame.add_axis_surface(x_bounds, y_bounds)
         frame.blit_axes(axis_settings)
@@ -982,7 +1006,12 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
 
         frame.axis_surface.blit_filled_queue()
         frame.axis_surface.blit_parametric_queue()
-        frame.blit_parametric_object(func, settings=foo_settings)
+
+        if t > 3 and not math.isclose(t, 3):
+            rec = objects.FilledObject(objects.Function(const=func(argmin)),
+                                       objects.Function(const=(1-t4)*func(argmin) + t4*func(argmax)), bolded_interval)
+            frame.axis_surface.blit_filled_object(rec, dark_rec_settings)
+
         for x in interval:
             line = objects.ParametricObject(make_const(x), lambda y: y, y_bounds)
             frame.axis_surface.blit_dashed_curve(line, 40, settings=dash_settings,
@@ -998,8 +1027,21 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
                 'color': dark_color
             }
             bolded_const = objects.Function(const=func.inf(bolded_interval))
-            bolded_const_int = [.995*t3*bolded_interval[0] + (1-t3)*argmin, .995*t3*bolded_interval[1] + (1-t3)*argmin]
+            bolded_const_int = [t3*bolded_interval[0] + (1-t3)*argmin, t3*bolded_interval[1] + (1-t3)*argmin]
             frame.axis_surface.blit_parametric_object(bolded_const, const_settings, bolded_const_int)
+
+        if t > 4 and not math.isclose(t, 4):
+            const_settings = {
+                'sampling rate': 3,
+                'thickness': thickness(t5),
+                'blur': 0,
+                'color': light_color
+            }
+            bolded_const = objects.Function(const=func.sup(bolded_interval))
+            bolded_const_int = [t5*bolded_interval[0] + (1-t5)*argmax, t5*bolded_interval[1] + (1-t5)*argmax]
+            frame.axis_surface.blit_parametric_object(bolded_const, const_settings, bolded_const_int)
+
+        frame.blit_parametric_object(func, settings=foo_settings)
 
         if t > 1 and not math.isclose(t, 1):
             color = (0, 0, 0, 3*t2/4)
@@ -1026,18 +1068,19 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
             frame.axis_surface.blit_parametric_queue()
 
         if t > 2 and not math.isclose(t, 2):
-            settings_point_interior = {
-                'sampling rate': 1,
-                'thickness': 0,
-                'blur': 0,
-                'color': 'white',
-                'blur kernel': 'box'
-            }
             circle = objects.BitmapDisk(int(.66*radius(t3))+2, dark_color, 1)
-            dot = objects.BitmapDisk(int(.66*radius(t3)), 'white', 1)
+            dot = objects.BitmapDisk(int(.66*radius(t3)), light_color, 1)
             frame.axis_surface.blit_bitmap_object((argmin, func(argmin)), circle,
                                                   settings_point_interior, surface_coordinates=True)
             frame.axis_surface.blit_bitmap_object((argmin, func(argmin)), dot,
+                                                  settings_point_interior, surface_coordinates=True)
+
+        if t > 4 and not math.isclose(t, 4):
+            circle = objects.BitmapDisk(int(.66*radius(t5))+2, light_color, 1)
+            dot = objects.BitmapDisk(int(.66*radius(t5)), dark_color, 1)
+            frame.axis_surface.blit_bitmap_object((argmax, func(argmax)), circle,
+                                                  settings_point_interior, surface_coordinates=True)
+            frame.axis_surface.blit_bitmap_object((argmax, func(argmax)), dot,
                                                   settings_point_interior, surface_coordinates=True)
         frame.blit_axis_surface()
         return frame
@@ -1046,7 +1089,7 @@ def bold(interval, bolded_interval, foo, x_bounds=(-1, 1), resolution=FHD, filen
     settings = {
         'fps': 24,
         'resolution': resolution,
-        'duration': 3
+        'duration': 5
     }
     animator.render(filename, settings, save_ram=True, id_=id_, speed=speed, read_only=False)
 
@@ -1080,6 +1123,173 @@ def hill(speed, resolution, filename='hill.mp4'):
     animator.render(filename, settings, save_ram=True, id_='koparaexp', speed=speed)
 
 
+NO_RANDOM = 30
+NO_NICE = 30
+
+
+def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=False):
+    def make_exp_diff(x0):
+        return basic_func.normalize_function(lambda x: math.exp(-70*(x-x0)**2), interval=(0, 2))
+
+    differentials = [make_exp_diff(.5)]\
+                    + [make_exp_diff(k) for k in np.linspace(1, 1.75, NO_NICE)]*2
+
+    def radius(x):
+        if x <= 3/4:
+            return int(8+8*x)
+        if x <= 1:
+            return int(-24*x+32)
+        else:
+            return 8
+
+    settings_dots = {
+        'blur': 3,
+        'blur kernel': 'box'
+    }
+
+    x_min = -.25
+    x_max = 1.25
+
+    random_1_points = [(min(max(np.random.normal(k, .1), x_min), x_max), .3) for k in np.linspace(x_min, x_max, NO_RANDOM)]
+    random_0_points = [(min(max(np.random.normal(k, .1), x_min), x_max), 0) for k in np.linspace(x_min, x_max, NO_RANDOM)]
+    random_0_points += [(min(max(np.random.normal(k, .1), x_min), 0), 0) for k in np.linspace(x_min, 0, NO_NICE//2)]
+    random_0_points += [(min(max(np.random.normal(k, .1), 1), x_max), 0) for k in np.linspace(1, x_max, NO_NICE//2)]
+    random_1_points += [(min(max(np.random.normal(k, .1), x_min), 0), .3) for k in np.linspace(x_min, 0, NO_NICE//2)]
+    random_1_points += [(min(max(np.random.normal(k, .1), 1), x_max), .3) for k in np.linspace(1, x_max, NO_NICE//2)]
+
+    nice_1_points = [(k, .3) for k in np.linspace(0, 1, NO_NICE)]
+    nice_0_points = [(k, 0) for k in np.linspace(0, 1, NO_NICE)]
+
+    def generate_frame(*t_list):
+        t0 = t_list[0]
+        color = (0, 0, 0, 3 * min(t0, 1) / 4)
+
+        frame = basic_func.OneAxisFrame(resolution)
+        frame.add_axis_surface((x_min, x_max), (-.3, .8))
+
+        nice_dots = [objects.BitmapDisk(radius(t), 'white', 1) for t in t_list[1:]]
+        random_dot = objects.BitmapDisk(8, 'white', 1)
+
+        frame.blit_axes(objects.PredefinedSettings.fhd_axis, x_only=True)
+
+        for dot, center in zip(nice_dots, nice_1_points):
+            frame.axis_surface.blit_bitmap_object(center, dot, settings_dots)
+        for dot, center in zip(nice_dots, nice_0_points):
+            frame.axis_surface.blit_bitmap_object(center, dot, settings_dots)
+        for center in random_1_points + random_0_points:
+            frame.axis_surface.blit_bitmap_object(center, random_dot, settings_dots)
+
+        gray_wall1 = objects.FilledObject(objects.Function(const=-.3), objects.Function(const=.8), (x_min, 0))
+        gray_wall2 = objects.FilledObject(objects.Function(const=-.3), objects.Function(const=.8), (1, x_max))
+
+        wall_settings = {
+            'sampling rate': 2,
+            'thickness': 0,
+            'blur': 0,
+            'color': color
+        }
+        frame.axis_surface.blit_filled_object(gray_wall1, wall_settings, queue=True, interval_of_param=(x_min, 0))
+        frame.axis_surface.blit_filled_object(gray_wall2, wall_settings, queue=True, interval_of_param=(1, x_max))
+        frame.axis_surface.blit_filled_queue()
+
+        line_0 = objects.ParametricObject(lambda x: 0, lambda y: y)
+        line_1 = objects.ParametricObject(lambda x: 1, lambda y: y)
+        frame.axis_surface.blit_dashed_curve(line_0, 40, 50, objects.PredefinedSettings.t2b0gray,
+                                             interval_of_param=(-.3, -.3 + 1.1*min(t0, 1)), queue=True)
+        frame.axis_surface.blit_dashed_curve(line_1, 40, 50, objects.PredefinedSettings.t2b0gray,
+                                             interval_of_param=(-.3, -.3 + 1.1*min(t0, 1)), queue=False)
+
+        frame.blit_axis_surface()
+        if save:
+            frame.generate_png('test_speedrun.png')
+        return frame
+
+    settings = {
+        'fps': 24,
+        'duration': 2,
+        'resolution': resolution
+    }
+
+    animator = basic_func.MultiDifferentialAnimation(generate_frame, *differentials)
+    animator.render(filename, settings, save_ram=True, speed=speed, id_='plum_dirichlet')
+
+
+def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
+    init_x_length = .025
+    settings_axes = {
+        'sampling rate': 1,
+        'thickness': 3,
+        'blur': 0,
+        'color': 'white'
+    }
+    settings_bounds = {
+        'sampling rate': 1,
+        'thickness': 2,
+        'blur': 0,
+        'color': 'gray'
+    }
+    settings_recs1 = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'baby powder'
+    }
+    settings_recs2 = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'shimmering blush'
+    }
+    division = [0, .08, .15, .24, .36, .45, .6, .75, .88, .95, 1]
+    x_bounds = (division[0] - .1, division[-1] + .1)
+    y_bounds = (-2, 2)
+
+    rec_size = [1.5, .3, -.4, .7, -1.6, -1.8, .2, -.9, .1, -1.2]
+
+    def gen_frame(t):
+        frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
+        frame.add_axis_surface(x_bounds, y_bounds)
+        recs = [objects.FilledObject(objects.Function(const=t*h), objects.Function(const=0), interval)
+                for h, interval in zip(rec_size, zip(division[:-1], division[1:]))]
+
+        for obj in recs[::2]:
+            frame.axis_surface.blit_filled_object(obj, settings_recs1, queue=True)
+        frame.axis_surface.blit_filled_queue()
+
+        for obj in recs[1::2]:
+            frame.axis_surface.blit_filled_object(obj, settings_recs2, queue=True)
+        frame.axis_surface.blit_filled_queue()
+
+        first_dash = objects.ParametricObject(make_const(division[0]), linear())
+        second_dash = objects.ParametricObject(make_const(division[-1]), linear())
+        frame.axis_surface.blit_dashed_curve(first_dash, 40, 200, settings_bounds, y_bounds, queue=True)
+        frame.axis_surface.blit_dashed_curve(second_dash, 40, 200, settings_bounds, y_bounds, queue=False)
+        frame.blit_axes(settings_axes, x_only=True)
+        lines = [objects.ParametricObject(make_const(point), lambda x: x, [-init_x_length, init_x_length])
+                 for point in division]
+        grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
+        frame.axis_surface.blit_parametric_object(grid, settings_bounds,
+                                                  interval_of_param=(-init_x_length, (2*len(lines) - 1)*init_x_length))
+        frame.blit_axis_surface()
+        return frame
+
+    def differential(t):
+        return math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) < 0))
+
+    differential = objects.normalize_function(differential, (0, .66))
+
+    animator = basic_func.SingleAnimation(gen_frame, differential)
+    # animator = basic_func.SingleAnimation(gen_frame, objects.normalize_function(differential, (0, .5)))
+
+    settings = {
+        'fps': 24,
+        'duration': 2,
+        'resolution': resolution
+    }
+
+    animator.render(filename, settings, speed=speed)
+
+
 if __name__ == '__main__':
     sys.setrecursionlimit(3000)
     # make_lower_sum_film()
@@ -1091,7 +1301,7 @@ if __name__ == '__main__':
     # generate_lower_sum_frame(lambda x: math.exp(x/10)*math.sin(x)**2+0.2, sorted(list(np.random.uniform(-5.1, 5.1, 30)) + [-5.1, 5.1]))
     # func_seq = [math.sin, lambda x: math.exp(x/10)*math.sin(x)**2+0.2, math.cos, lambda x: math.exp(x/10)]
     # int_seq = [(-4, 3), (-4.5, 2), (-3, 4), (-1, 4.5)]
-    # smooth_animate_changing_integral(func_seq, int_seq, (1280, 720))
+    # smooth_animate_changing_integral(func_seq, int_seq, FHD)
     # divisions = [(0, 1, 1, 3, 3, 3, 4),
     #              (0, 1.5, 2, 2.5, 3.5, 3.7, 4),
     #              (0, 1, 1, 3, 3.4, 3.4, 4),
@@ -1104,38 +1314,38 @@ if __name__ == '__main__':
     #     division_.append((a + b) / 2)
     # division_.sort()
     # smooth_animate_change_to_recs(division_, lambda x: math.exp(x / 10) * math.sin(x) ** 2 + 0.2, (1280, 720), .15,
-    #                               'change_to_rec_dense.mp4')
+    # #                               'change_to_rec_dense.mp4')
+    # # #
+    # foos = [lambda x: math.exp(x / 10) * math.sin(x) ** 2 + 1.2, lambda x: x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12+1,
+    #         lambda x: (abs(x) - abs(x-1) + x**2/15)/2 + 1.2]
     #
-    foos = [lambda x: math.exp(x / 10) * math.sin(x) ** 2 + 1.2, lambda x: x*(x-2)*(x+2)*(x-5)*(x+5)*math.exp(-abs(x))*math.sin(x)/12+1,
-            lambda x: (abs(x) - abs(x-1) + x**2/15)/2 + 1.2]
-
-    divs = [[(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
-            (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
-            (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
-            (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)],
-            [(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
-             (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
-             (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
-             (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)][::-1],
-            [(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
-             (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
-             (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
-             (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)]]
-
-    divs = [[(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
-            (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
-            (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
-            (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)],
-            [(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
-             (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
-             (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
-             (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)][::-1],
-            [(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
-             (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
-             (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
-             (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)]]
-
-    smooth_lower_sums_op(divs, foos, FHD, .1)
+    # divs = [[(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
+    #         (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
+    #         (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
+    #         (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)],
+    #         [(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
+    #          (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
+    #          (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
+    #          (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)][::-1],
+    #         [(-5, -5, -5, -5, -3, -1.5, 0, 2, 3, 4, 5),
+    #          (-5, -5, -5, -3, -2.5, 0.5, 1.1, 2.3, 3.2, 4.1, 5),
+    #          (-5, -5, -4, -2.8, -2.5, -2, -1, 1.4, 2.2, 3.5, 5),
+    #          (-5, -4, -3.5, -2.1, -.5, 0, 1.2, 2.5, 3.1, 4, 5)]]
+    # #
+    # divs = [[(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
+    #         (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
+    #         (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
+    #         (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)],
+    #         [(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
+    #          (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
+    #          (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
+    #          (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)][::-1],
+    #         [(-5, -4, -3, -2, -2.5, 0, .5, 2, 3, 4.5, 5),
+    #          (-5, -4.5, -3.5, -1.5, -.5, 1, 1.5, 2.5, 3.5, 4, 5),
+    #          (-5, -4.3, -3, -2.2, -1, -.5, 1.2, 2.3, 3, 3.5, 5),
+    #          (-5, -4.7, -4, -3.3, -2.2, -1.1, 0.4, 1.2, 2, 3.1, 5)]]
+    #
+    # smooth_lower_sums_op(divs, foos, FHD, 1)
 
     # decompose_shape((1280, 720), .25)
     # triple_densing(lambda x: int(x*math.log(x + 3) + 1), 15, 3, FHD)
@@ -1162,3 +1372,4 @@ if __name__ == '__main__':
     # bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: math.exp(x / 2) * math.sin(5 * x) ** 2 + 1.2,
     #      resolution=FHD, speed=.4, light_color='banana mania', dark_color='coyote brown')
     # decompose_shape(FHD, .1)
+    plum_dirichlet(speed=.3, resolution=FHD)

@@ -112,7 +112,6 @@ def single_frame(partition, values, interval, interval_but_smol, radius, indices
         frame.axis_surface.blit_distinct_bitmap_objects(pts, for_zoom_points[:len(pts)], settings_point_interior,
                                                         surface_coordinates=False)
         for_zoom_points = for_zoom_points[len(pts):]
-        print(for_zoom_points)
 
 
     # do wyjebania:
@@ -129,7 +128,7 @@ def single_frame(partition, values, interval, interval_but_smol, radius, indices
 
 def animate_zoom(no_of_points, no_of_fixed, radius, interval, interval_but_smol, speed, resolution, filename='dirichlet_function.mp4',
                              id_='dirichlet', slow=False):
-    indices = [randint(0, 2) for _ in range(no_of_fixed + 2 * no_of_points)]
+    indices = [randint(0, 9) for _ in range(no_of_fixed + 2 * no_of_points)]
     partition = partition_fractal(no_of_points, no_of_fixed, interval[1]-interval[0])
     values = dirichlet_function_but_enhanced(partition[0], partition[1])
 
@@ -139,7 +138,7 @@ def animate_zoom(no_of_points, no_of_fixed, radius, interval, interval_but_smol,
     def make_exp_diff(x0):
         return basic_func.normalize_function(lambda x: math.exp(-200*(x-x0)**2))
 
-    differentials = [lambda x: 1.02] + [make_exp_diff(t) for t in np.linspace(.25, .75, 3)]
+    differentials = [lambda x: 1.02] + [make_exp_diff(t) for t in np.linspace(.25, .75, 10)]
 
     animator = basic_func.MultiDifferentialAnimation(frame_gen, *differentials)
     settings = {
@@ -147,7 +146,8 @@ def animate_zoom(no_of_points, no_of_fixed, radius, interval, interval_but_smol,
         'resolution': resolution,
         'duration': 1
     }
-    animator.render(filename, settings, True, id_, speed=speed, precision=10000)
+    animator.render(filename, settings, True, id_, speed=speed, precision=1000)
+
 
 if __name__ == '__main__':
     # print(random_points(30))
@@ -157,4 +157,4 @@ if __name__ == '__main__':
     # ctrs = [(1,0), (1.5,0), (2,0), (3,0), (3.7,0),(5,0), (5.6,0), (6,0), (8,0), (8,1)]
     # r = .4
     # print(split_object_list(ctrs,r,5))
-    animate_zoom(20, 3, 7, (0, 1), (.4, .6), .25, (1280, 720))
+    animate_zoom(10, 5, 7, (0, 1), (.4, .6), .25, (1280, 720))

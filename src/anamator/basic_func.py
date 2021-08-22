@@ -141,6 +141,19 @@ class Surface:
         result[:, :, 3] = 1 - (1 - bottom_img[:, :, 3]) * (1 - top_img[:, :, 3])
         return result
 
+    @staticmethod
+    def merge_images_different_sized(bottom_img, top_img, corner):
+        debug('merging images', short=True)
+        x1, y1 = corner
+        size_x, size_y, _ = top_img.shape
+        x2, y2 = x1 + size_x, y1 + size_y
+        result = copy.copy(bottom_img)
+        alpha1 = np.array([top_img[:, :, 3]]*3).swapaxes(0, 2).swapaxes(0, 1)
+        alpha2 = np.array([bottom_img[x1:x2, y1:y2, 3]]*3).swapaxes(0, 2).swapaxes(0, 1)
+        result[x1:x2, y1:y2, :3] = alpha1 * top_img[:, :, :3] + alpha2 * (1 - alpha1) * bottom_img[x1:x2, y1:y2, :3]
+        result[x1:x2, y1:y2, 3] = 1 - (1 - bottom_img[x1:x2, y1:y2, 3]) * (1 - top_img[:, :, 3])
+        return result
+
     def check_if_point_is_valid(self, point):
         """
         Check if point in pixel coordinates is valid point on this surface.
@@ -429,7 +442,6 @@ class AxisSurface(Surface):
             x0, y0 = self.transform_to_pixel_coordinates(function1.get_point(x0))
             x1, y1 = self.transform_to_pixel_coordinates(function2.get_point(x1))
             y0, y1 = sorted([y0, y1])
-            print(x0, x1, y0, y1)
             tmp_bitmap[x0:x1, y0:y1] = 1
 
         else:
@@ -561,7 +573,32 @@ class AxisSurface(Surface):
         """
         Blitting single bitmap object, alias for blit_distinct_bitmap_objects with only one object in a list.
         """
-        self.blit_distinct_bitmap_objects([center], [img_object], settings, surface_coordinates=surface_coordinates)
+        # self.blit_distinct_bitmap_objects([center], [img_object], settings, surface_coordinates=surface_coordinates)
+        if surface_coordinates:
+            center = self.transform_to_pixel_coordinates(center)
+        blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
+        blur_kernel = 'box' if settings is None or 'blur kernel' not in settings.keys() else settings['blur kernel']
+
+        debug('blitting bitmap object', short=True)
+
+        x, y = np.array(center) - np.array(img_object.res) // 2
+        if not self.check_if_point_is_valid((x, y)) or not \
+                self.check_if_point_is_valid(np.array(center)
+                                             + np.array(img_object.res) // 2):
+            return
+
+            # tmp_bitmap[x:x + img_object.res[0], y:y + img_object.res[1], :] = img_object.bitmap
+
+        if blur_kernel == 'box' and blur > 1:
+            kernel = np.zeros((blur, blur))
+            kernel.fill(1 / blur ** 2)
+
+            # TODO: Other kernels
+            blurred_object = copy.copy(img_object.bitmap)
+            blurred_object[:, :, 3] = scipy.signal.convolve2d(img_object.bitmap[:, :, 3], kernel, mode='same')
+        else:
+            blurred_object = img_object.bitmap
+        self.bitmap = self.merge_images_different_sized(self.bitmap, blurred_object, (x, y))
 
     def blit_distinct_bitmap_objects(self, centers, img_objects, settings, surface_coordinates=True):
         """
@@ -883,7 +920,7 @@ class SingleAnimation:
         self.frame_generator = frame_generator
         self.differential = differential
 
-    def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False,
+    def render(self, filename, settings, save_ram=True, id_='', start_from=0, read_only=False,
                precision=1000, speed=1):
         duration = settings['duration']
         film = Film(settings['fps'], settings['resolution'], id=id_)

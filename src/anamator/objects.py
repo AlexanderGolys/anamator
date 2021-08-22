@@ -55,7 +55,11 @@ class ColorParser:
             'irresistible': (170, 68, 101, 1),
             'grullo': (168, 155, 140, 1),
             'banana mania': (240, 223, 173, 1),
-            'coyote brown': (143, 92, 56, 1)
+            'coyote brown': (143, 92, 56, 1),
+            'vivid tangerine': (235, 148, 134, 1),
+            'magic mint': (182, 239, 212, 1),
+            'baby powder': (255, 252, 249, 1),
+            'shimmering blush': (220, 117, 143, 1)
         }
         if isinstance(color, str) and color[0] != '#':
             try:
