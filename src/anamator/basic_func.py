@@ -970,7 +970,7 @@ class MultiDifferentialAnimation:
         self.differentials = differentials
 
     def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False,
-               precision=1000, speed=1):
+               precision=1000, speed=1, integrated=False):
         duration = settings['duration']
         film = Film(settings['fps'], settings['resolution'], id=id_)
         fps = settings['fps'] // speed
@@ -978,7 +978,11 @@ class MultiDifferentialAnimation:
         def integral(foo):
             return lambda h: sum([foo((k+1) / (fps * precision)) for k in range(math.floor(h * fps) * precision)]) / (
                                   fps * precision)
-        t = [integral(differential) for differential in self.differentials]
+
+        if not integrated:
+            t = [integral(differential) for differential in self.differentials]
+        else:
+            t = self.differentials
 
         prev_t = [math.nan for _ in self.differentials]
         last_frame = None

@@ -1123,11 +1123,11 @@ def hill(speed, resolution, filename='hill.mp4'):
     animator.render(filename, settings, save_ram=True, id_='koparaexp', speed=speed)
 
 
-NO_RANDOM = 30
+NO_RANDOM = 50
 NO_NICE = 30
 
 
-def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=False):
+def plum_dirichlet(filename='plum_dirichlet_6px.mp4', speed=1, resolution=FHD, save=False):
     def make_exp_diff(x0):
         return basic_func.normalize_function(lambda x: math.exp(-70*(x-x0)**2), interval=(0, 2))
 
@@ -1136,11 +1136,11 @@ def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=
 
     def radius(x):
         if x <= 3/4:
-            return int(8+8*x)
+            return int(6+6*x)
         if x <= 1:
-            return int(-24*x+32)
+            return int(-18*x+24)
         else:
-            return 8
+            return 6
 
     settings_dots = {
         'blur': 3,
@@ -1168,7 +1168,7 @@ def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=
         frame.add_axis_surface((x_min, x_max), (-.3, .8))
 
         nice_dots = [objects.BitmapDisk(radius(t), 'white', 1) for t in t_list[1:]]
-        random_dot = objects.BitmapDisk(8, 'white', 1)
+        random_dot = objects.BitmapDisk(6, 'white', 1)
 
         frame.blit_axes(objects.PredefinedSettings.fhd_axis, x_only=True)
 
@@ -1194,10 +1194,12 @@ def plum_dirichlet(filename='plum_dirichlet.mp4', speed=1, resolution=FHD, save=
 
         line_0 = objects.ParametricObject(lambda x: 0, lambda y: y)
         line_1 = objects.ParametricObject(lambda x: 1, lambda y: y)
-        frame.axis_surface.blit_dashed_curve(line_0, 40, 50, objects.PredefinedSettings.t2b0gray,
-                                             interval_of_param=(-.55*min(t0, 1) + .25, .25 + .55*min(t0, 1)), queue=True)
-        frame.axis_surface.blit_dashed_curve(line_1, 40, 50, objects.PredefinedSettings.t2b0gray,
-                                             interval_of_param=(-.55*min(t0, 1) + .25, .25 + .55*min(t0, 1)), queue=False)
+        bounds = (-.55 * min(t0, 1) + .25, .25 + .55 * min(t0, 1))
+        if bounds[1] - bounds[0] > .01:
+            frame.axis_surface.blit_dashed_curve(line_0, 40, 50, objects.PredefinedSettings.t2b0gray,
+                                                 interval_of_param=bounds, queue=True)
+            frame.axis_surface.blit_dashed_curve(line_1, 40, 50, objects.PredefinedSettings.t2b0gray,
+                                             interval_of_param=bounds, queue=False)
 
         frame.blit_axis_surface()
         if save:
@@ -1275,7 +1277,7 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
 
     def differential(t):
         return math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) < 0)) if t < 2 \
-            else math.sin(1.5*math.pi*t)*(1 + int(math.sin(1.5*math.pi*t) > 0))/2
+            else math.sin(3*math.pi*t)*(1 + int(math.sin(3*math.pi*t) < 0))/2
 
     differential = objects.normalize_function(differential, (0, .66))
 
