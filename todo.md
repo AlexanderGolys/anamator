@@ -9,3 +9,4 @@
 * Bernstein
 * Weierstrass theorem proofs
 * The long line 
+* homotopy on letters
