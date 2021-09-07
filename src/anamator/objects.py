@@ -8,11 +8,30 @@ import deprecation
 
 from abc import ABC, abstractmethod
 from PIL import Image
+from scipy.special import erf
+
+
+HD = (1280, 720)
+FHD = (1920, 1080)
+SHIT = (640, 480)
 
 
 class ColorParser:
     @staticmethod
     def parse_color(color):
+        """
+        Parsing color.
+
+        Possible formats:
+            * hex value in string in RGB.
+            * hex value in string in RGBA.
+            * known name in string.
+            * tuple or RGB values.
+            * tuple of RGBA values
+
+        Returns:
+            Tuple of RGBA values.
+        """
         color_dict = {
             'black': (0, 0, 0, 1),
             'red': (255, 0, 0, 1),
@@ -59,7 +78,12 @@ class ColorParser:
             'vivid tangerine': (235, 148, 134, 1),
             'magic mint': (182, 239, 212, 1),
             'baby powder': (255, 252, 249, 1),
-            'shimmering blush': (220, 117, 143, 1)
+            'shimmering blush': (220, 117, 143, 1),
+            'honeydew': (240, 255, 241, 1),
+            'opal': (171, 200, 199, 1),
+            'monatee': (171, 171, 189, 1),
+            'baby blue eyes': (162, 210, 255, 1),
+            'uranian blue': (189, 224, 254, 1)
         }
         if isinstance(color, str) and color[0] != '#':
             try:
@@ -77,15 +101,59 @@ class ColorParser:
 
     @staticmethod
     def parse_and_add_alpha(color, alpha):
+        """
+        Parsing color and adds to it given alpha value.
+
+        Args:
+            color (str or tuple): Color to be parsed.
+            alpha (float): Alpha value ranging from 0 to 1.
+
+        Returns:
+            tuple: Color in RGBA.
+
+        Raises:
+            ValueError: If t is not ranging from 0 to 1.
+        """
+        if alpha < 0 or alpha > 1:
+            raise ValueError('Alpha must range from 0 to 1.')
+
         c = ColorParser.parse_color(color)
         return c[:3] + (alpha,)
 
     @staticmethod
     def blend(c1, c2, t):
-        return np.array(ColorParser.parse_color(c1))*(1-t) + np.array(ColorParser.parse_color(c2))*t
+        """
+        Parse and blend colors by convex combination.
+
+        Args:
+            c1 (str or tuple): First color.
+            c2 (str or tuple): Second color.
+            t (float): Parameter of combination from [0, 1].
+
+        Returns:
+            tuple: Blended color in RGBA.
+
+        Raises:
+            ValueError: If t is not ranging from 0 to 1.
+        """
+        if t < 0 or t > 1:
+            raise ValueError('t must be from [0, 1].')
+
+        return tuple(np.array(ColorParser.parse_color(c1))*(1-t) + np.array(ColorParser.parse_color(c2))*t)
 
 
 def normalize_function(foo, interval=(0, 1), precision=100):
+    """
+    Normalizes function on given interval.
+
+    Args:
+        foo (function): Function to be normalized.
+        interval (tuple): Interval of normalization.
+        precision (int): Precision of numerical calculations.
+
+    Returns:
+        function: Normalized function.
+    """
     start, end = interval
     norm = sum([foo(start + k/precision) for k in range(math.floor(precision*(end-start)))])/math.floor(precision*(end-start))
     # print(norm)
@@ -93,95 +161,18 @@ def normalize_function(foo, interval=(0, 1), precision=100):
 
 
 def make_periodic(foo, t=1):
+    """
+    Making function periodic.
+
+    Args:
+        foo (function): Function to be made periodic.
+        t (float): Period.
+
+    Returns:
+        function: Periodic function with period t.
+    """
     return lambda x: foo(x-x//t*t)
 
-
-class PredefinedSettings:
-    @staticmethod
-    def fhd_render_24fps(duration):
-        return {
-            'fps': 24,
-            'resolution': (1920, 1080),
-            'duration': duration
-        }
-
-    @staticmethod
-    def hd_render_24fps(duration):
-        return {
-            'fps': 24,
-            'resolution': (1280, 720),
-            'duration': duration
-        }
-
-    t5b2white = {
-            'sampling rate': 3,
-            'thickness': 5,
-            'blur': 2,
-            'color': 'white'
-        }
-    hd_foo = t5b2white
-    fhd_axis = t5b2white
-
-    t5b2gray = {
-            'sampling rate': 3,
-            'thickness': 5,
-            'blur': 2,
-            'color': 'gray'
-        }
-
-    t0b0white = {
-            'sampling rate': 3,
-            'thickness': 0,
-            'blur': 0,
-            'color': 'white'
-        }
-    white_filling = t0b0white
-
-    t10b4white = {
-            'sampling rate': 3,
-            'thickness': 10,
-            'blur': 4,
-            'color': 'white'
-        }
-    fhd_foo = t10b4white
-
-    t10b4gray = {
-            'sampling rate': 3,
-            'thickness': 10,
-            'blur': 4,
-            'color': 'gray'
-        }
-
-    t2b0white = {
-            'sampling rate': 3,
-            'thickness': 2,
-            'blur': 0,
-            'color': 'white'
-        }
-    t2b0gray = {
-            'sampling rate': 3,
-            'thickness': 2,
-            'blur': 0,
-            'color': 'gray'
-        }
-    t1b0white = {
-            'sampling rate': 3,
-            'thickness': 1,
-            'blur': 0,
-            'color': 'white'
-        }
-    t1b0gray = {
-            'sampling rate': 3,
-            'thickness': 1,
-            'blur': 0,
-            'color': 'gray'
-        }
-
-    slow_differential = make_periodic(normalize_function(lambda x: (x - 1/4) ** 2 * (3/4 - x) ** 2 if abs(x - 1 / 2) < 1/4 else 0))
-
-    fast_differential = make_periodic(normalize_function(lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0))
-
-    exp_differential = make_periodic(normalize_function(lambda x: math.exp(-100*(x-1/2)**2)))
 
 class Object(ABC):
     """
@@ -344,6 +335,9 @@ class ParametricObject(Object):
         return ParametricObject(x_function, y_function)
 
     def shift_interval(self):
+        """
+        Shifts bounds to start from 0.
+        """
         if self.bounds is None:
             return
         x_function_copy = copy.copy(self.x_function)
@@ -374,21 +368,54 @@ class Function(ParametricObject):
         self.const = const
 
     def __call__(self, *args, **kwargs):
+        """
+        Calculating the function value at given argument.
+        """
         if self.const is not None:
             return self.const
         return self.y_function(*args, **kwargs)
 
     def sup(self, interval=(0, 1), precision=50):
+        """
+        Finding the supremum of a function on given interval.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            float: Numerical approximation of supremum on given interval.
+        """
         if self.const is not None:
             return self.const
         return max([self(x) for x in np.linspace(*interval, precision)])
 
     def inf(self, interval=(0, 1), precision=50):
+        """
+        Finding the infimum of a function on given interval.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            float: Numerical approximation of infimum on given interval.
+        """
         if self.const is not None:
             return self.const
         return min([self(x) for x in np.linspace(*interval, precision)])
 
     def zeros(self, interval=(0, 1), precision=100):
+        """
+        Finding approximations of function's zeros on given interval.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            list: List of zeros.
+        """
         if self.const == 0:
             return list(np.linspace(*interval, precision))
         if self.const is not None:
@@ -407,14 +434,44 @@ class Function(ParametricObject):
         return result
 
     def one_sign_intervals(self, interval=(0, 1), precision=100):
+        """
+        Returns list of intervals on which function does not change sign.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            list: List of intervals.
+        """
         points = [interval[0]] + self.zeros(interval, precision) + [interval[1]]
         points = sorted(list(set(points)))
         return list(zip(points[:-1], points[1:]))
 
     def argmin(self, interval=(0, 1), precision=100):
+        """
+        Finding the argmin on given interval.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            float: Argmin on given interval.
+        """
         return min([(x, self(x)) for x in np.linspace(*interval, precision)], key=lambda x: x[1])[0]
 
     def argmax(self, interval=(0, 1), precision=100):
+        """
+        Finding the argmax on given interval.
+
+        Args:
+            interval (tuple): Interval of search.
+            precision (float): Precision of numerical computations.
+
+        Returns:
+            float: Argmax on given interval.
+        """
         return max([(x, self(x)) for x in np.linspace(*interval, precision)], key=lambda x: x[1])[0]
 
 
@@ -445,6 +502,15 @@ class FilledObject(Object):
         self.function2.add_bounds(interval)
 
     def stack_filled_objects(self, other):
+        """
+        Gluing two FilledObjects together.
+
+        Args:
+            other (FilledObject): FilledObject to be glued.
+
+        Returns:
+            FilledObject: New, merged FilledObject.
+        """
         if self.interval is None:
             warnings.warn('FilledObject without interval')
 
@@ -455,6 +521,9 @@ class FilledObject(Object):
         return FilledObject(new_foo1, new_foo2, new_foo1.bounds)
 
     def shift_interval(self):
+        """
+        Shifts interval to start from 0.
+        """
         if self.interval is None:
             return
         self.function1.shift_interval()
@@ -462,6 +531,9 @@ class FilledObject(Object):
         self.interval = [0, self.interval[1]-self.interval[0]]
 
     def is_rec(self):
+        """
+        Check if object is a rectangle. Some computations on rectangles such as blitting are much faster.
+        """
         try:
             return self.function1.const is not None and self.function2.const is not None
         except AttributeError:
@@ -469,6 +541,9 @@ class FilledObject(Object):
 
 
 class Disk(FilledObject):
+    """
+    Representing a filled disk as FilledObject.
+    """
     def __init__(self, center, radius):
         x0, y0 = center
         foo1 = Function(lambda x: abs(radius**2 - (x-x0)**2)**(1/2) + y0)
@@ -482,6 +557,9 @@ class Disk(FilledObject):
 
 
 class Ellipse(ParametricObject):
+    """
+    Representing an ellipse as ParametricObject.
+    """
     def __init__(self, center, r1, r2):
         x0, y0 = center
         foo1 = lambda t: r1*math.cos(t) + x0
@@ -491,6 +569,9 @@ class Ellipse(ParametricObject):
 
 
 class BitmapCircle(BitmapObject):
+    """
+    Representing a circle as BitmapObject.
+    """
     def __init__(self, radius, color, thickness, opacity, padding=5):
         shape = 2 * (radius + padding) + 1
         bitmap = np.zeros((shape, shape, 4))
@@ -506,6 +587,9 @@ class BitmapCircle(BitmapObject):
 
 
 class PolygonalChain(ParametricObject):
+    """
+    Representing a polygonal chain as parametric object.
+    """
     def __init__(self, points):
         interval = (0, len(points)-1)
         x_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][0] + (1-(t-math.floor(t)))*points[math.floor(t)+1][0]
@@ -514,6 +598,232 @@ class PolygonalChain(ParametricObject):
 
 
 class BitmapDisk(BitmapCircle):
+    """
+    Representing disk as BitmapObject.
+    """
     def __init__(self, radius, color, opacity, padding=0):
         super().__init__(radius, color, radius, opacity, padding)
+
+
+class Settings:
+    def __init__(self, d=None, **kwargs):
+        self.dictionary = d if d is not None else {}
+        for key, value in kwargs:
+            self.dictionary[key] = value
+
+    def __getitem__(self, item):
+        return self.dictionary[item]
+
+    def keys(self):
+        return self.dictionary.keys()
+
+
+class RenderSettings(Settings):
+    def __init__(self, fps=24, duration=1, resolution=FHD):
+        dictionary = {
+            'fps': fps,
+            'duration': duration,
+            'resolution': resolution
+        }
+        super().__init__(dictionary)
+
+
+class ParametricBlittingSettings(Settings):
+    def __init__(self, sampling_rate=3, thickness=5, color='white', blur=3, blur_kernel='box'):
+        dictionary = {
+            'sampling rate': sampling_rate,
+            'thickness': thickness,
+            'blur': blur,
+            'color': color,
+            'blur kernel': blur_kernel
+        }
+        super().__init__(dictionary)
+
+
+class BitmapBlittingSettings(Settings):
+    def __init__(self, blur=0, blur_kernel='box'):
+        dictionary = {
+            'blur': blur,
+            'blur kernel': blur_kernel
+        }
+        super().__init__(dictionary)
+
+
+@abstractmethod
+class ElementalFunction(ABC):
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def derivative(self, x):
+        pass
+
+    @abstractmethod
+    def integral(self, a, b):
+        pass
+
+    @abstractmethod
+    def normalize(self, interval=(0, 1)):
+        pass
+
+    @abstractmethod
+    def scale(self, factor):
+        pass
+
+
+class Gaussian(ElementalFunction):
+    def __init__(self, center, exp_multiplier, normal_multiplier, normalization=(0, 1)):
+        super().__init__()
+        self.center = center
+        self.exp_mul = exp_multiplier
+        self.mul = normal_multiplier
+        if normal_multiplier is None:
+            self.mul = 1
+            self.normalize(normalization)
+
+    @property
+    def foo(self):
+        return lambda x: self.mul*math.exp(self.exp_mul*(x-self.center)**2)
+
+    def __call__(self, *args, **kwargs):
+        return self.foo(args[0])
+
+    def integral(self, a, b):
+        indefinite = lambda x: -math.pi**.5*self.mul*erf(-self.exp_mul**.5*(self.center - x))/(-2*self.exp_mul**.5)
+        return indefinite(b) - indefinite(a)
+
+    def derivative(self, x):
+        return 2*self.mul*self.exp_mul*(x-self.center)*math.exp(self.exp_mul*(x-self.center)**2)
+
+    def normalize(self, interval=(0, 1)):
+        self.mul /= self.integral(*interval)
+
+    def scale(self, factor):
+        self.mul *= factor
+
+    def __str__(self):
+        return f'f(x) = {self.mul: .2f}exp({self.exp_mul: .2f}(x - {self.center:.2f}))'
+
+
+class Polynomial(ElementalFunction):
+    def __init__(self, coefs):
+        super().__init__()
+        self.coefs = coefs
+
+    @property
+    def foo(self):
+        return lambda x: sum([c*x**i for i, c in enumerate(self.coefs)])
+
+    def __call__(self, *args, **kwargs):
+        return self.foo(args[0])
+
+    def integral(self, a, b):
+        new_coefs = [0] + [c/(i+1) for i, c in enumerate(self.coefs)]
+        return Polynomial(new_coefs)(b) - Polynomial(new_coefs)(a)
+
+    def derivative(self, x):
+        new_coefs = [i*c for i, c in enumerate(self.coefs)][1:]
+        return Polynomial(new_coefs)(x)
+
+    def normalize(self, interval=(0, 1)):
+        norm = self.integral(*interval)
+        self.coefs = list(map(lambda x: x/norm, self.coefs))
+
+    def scale(self, factor):
+        self.coefs = list(map(lambda x: x*factor, self.coefs))
+
+    def __str__(self):
+        return ' + '.join([f'{c:.2f}x^{i}' for i, c in self.coefs])
+
+
+class FunctionCutIntoParts(ElementalFunction):
+    def __init__(self, breakpoints, elemental_functions):
+        super().__init__()
+        self.breakpoints = breakpoints
+        self.elemental_functions = elemental_functions
+
+    def __call__(self, *args, **kwargs):
+        x = args[0]
+        smaller_than_x = list(filter(lambda p: p[0] < x, zip(self.breakpoints, range(len(self.breakpoints)))))
+        if not smaller_than_x:
+            return self.elemental_functions[0](x)
+        index = max(smaller_than_x, key=lambda p: p[0])[1] + 1
+        return self.elemental_functions[index](x)
+
+    def integral(self, a, b):
+        value = 0
+
+        for x0, x1, foo in zip(self.breakpoints[:-1], self.breakpoints[1:], self.elemental_functions):
+            if x0 > b or x1 < a:
+                continue
+            value += foo.integral(max(x0, a), min(x1, b))
+
+        return value
+
+    def derivative(self, x):
+        if x < self.breakpoints[0]:
+            return self.elemental_functions[0].derivative(x)
+        if x > self.breakpoints[-1]:
+            return self.elemental_functions[-1].derivative(x)
+
+        proper_foo = list(filter(lambda p: p[0] <= x < p[1], zip(self.breakpoints[:-1], self.breakpoints[1:],
+                                                                self.elemental_functions)))[0][2]
+        return proper_foo.derivative(x)
+
+    def normalize(self, interval=(0, 1)):
+        norm = self.integral(*interval)
+        map(lambda x: x.scale(1/norm), self.elemental_functions)
+
+    def scale(self, factor):
+        map(lambda x: x.scale(factor), self.elemental_functions)
+
+
+class PredefinedSettings:
+    @staticmethod
+    def fhd_render_24fps(duration):
+        return {
+            'fps': 24,
+            'resolution': (1920, 1080),
+            'duration': duration
+        }
+
+    @staticmethod
+    def hd_render_24fps(duration):
+        return {
+            'fps': 24,
+            'resolution': (1280, 720),
+            'duration': duration
+        }
+
+    t5b2white = ParametricBlittingSettings(blur=2)
+    hd_foo = t5b2white
+
+    t5b0white = ParametricBlittingSettings(blur=0)
+    fhd_axis = t5b0white
+
+    t5b2gray = ParametricBlittingSettings(blur=2, color='gray')
+
+    t0b0white = ParametricBlittingSettings(thickness=0, blur=0)
+    white_filling = t0b0white
+
+    t10b4white = ParametricBlittingSettings(thickness=10, blur=4)
+
+    t10b3white = ParametricBlittingSettings(thickness=10)
+    fhd_foo = t10b3white
+
+    t10b4gray = ParametricBlittingSettings(thickness=10, blur=4, color='gray')
+
+    t2b0white = ParametricBlittingSettings(thickness=2, blur=0)
+    t2b0gray = ParametricBlittingSettings(thickness=2, blur=0, color='gray')
+    t1b0white = ParametricBlittingSettings(thickness=1, blur=0)
+    t1b0gray = ParametricBlittingSettings(thickness=1, blur=0, color='gray')
+
+    slow_differential = make_periodic(normalize_function(lambda x: (x - 1/4) ** 2 * (3/4 - x) ** 2 if abs(x - 1 / 2) < 1/4 else 0))
+    fast_differential = make_periodic(normalize_function(lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0))
+    exp_differential = make_periodic(normalize_function(lambda x: math.exp(-100*(x-1/2)**2)))
+
+
+
+
 

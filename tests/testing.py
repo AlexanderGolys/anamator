@@ -375,9 +375,9 @@ def stupid_test2():
 def test_multi():
     def make_exp_diff(x0, c):
         return basic_func.normalize_function(lambda x: math.exp(-c*(x-x0)**2))
-    differentials_80 = [make_exp_diff(k, 80) for k in np.linspace(.25, .75, 30)]
-    differentials_100 = [make_exp_diff(k, 100) for k in np.linspace(.25, .75, 30)]
-    differentials_200 = [make_exp_diff(k, 70) for k in np.linspace(.25, .75, 10)]*10
+    # differentials_80 = [objects.Gaussian(k, 100, None) for k in np.linspace(.25, .75, 30)]
+    # differentials_100 = [make_exp_diff(k, 100) for k in np.linspace(.25, .75, 30)]
+    differentials_200 = [objects.Gaussian(k, 70, None) for k in np.linspace(.25, .75, 10)]*10
     differentials = differentials_200
 
     def radius(x):
@@ -425,6 +425,9 @@ def test_multi():
 
     animator = basic_func.MultiDifferentialAnimation(generate_frame, *differentials)
     animator.render('test_multi2.mp4', settings, save_ram=True, speed=.5)
+
+
+
 
 
 if __name__ == '__main__':

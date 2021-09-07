@@ -143,6 +143,16 @@ class Surface:
 
     @staticmethod
     def merge_images_different_sized(bottom_img, top_img, corner):
+        """
+        Merging smaller or equal bitmap on top of the bigger one.
+
+        Args:
+            bottom_img (np.array): Bigger or equal, bottom image bitmap.
+            top_img (np.array): Smaller or equal, top image bitmap.
+            corner (tuple): Coordinates bottom-left corner of smaller image.
+        """
+        if bottom_img.shape[0] < top_img.shape[0] or bottom_img.shape[1] < top_img.shape[1]:
+            raise ValueError('Bottom image should nod be smaller than the top one.')
         debug('merging images', short=True)
         x1, y1 = corner
         size_x, size_y, _ = top_img.shape
@@ -644,10 +654,26 @@ class AxisSurface(Surface):
         circle = objects.BitmapCircle(radius, settings['color'], settings['thickness'], opacity, padding)
         self.blit_distinct_bitmap_objects(coords, circle, settings)
 
-    def blit_dashed_curve(self, obj, number_of_dashes, precision=50, settings=None, interval_of_param=None, queue=False):
+    def blit_dashed_curve(self, obj, number_of_dashes, precision=50, settings=None,
+                          interval_of_param=None, queue=False):
+        """
+        Blitting dashed curve given by parametric equations.
+
+        Args:
+            obj (ParametricObject): Curve represented by ParametricObject.
+            number_of_dashes (int): Number of dashes to be constructed.
+            precision (int, optional): Numerical precision of calculation of dashes position.
+            settings (dict, optional): Blitting settings. Argument can be None only if queue is True.
+            interval_of_param (tuple): Interval of curve parameter.
+            queue (bool): Used for blitting several curves in a row with same settings. On the last curve queue must
+                be equal to False and settings must be provided.
+        """
 
         debug('calculating dashed curve', short=True)
         number_of_dashes = 2*number_of_dashes - 1
+
+        if not queue and settings is None:
+            raise ValueError('Settings not provided.')
 
         # m = max(self.res)*settings['sampling rate']
 
@@ -774,25 +800,79 @@ class OneAxisFrame(Frame):
 
 
 class ThreeAxisFrame(Frame):
+    """
+    Frame containing 3 independent AxisSurfaces, placed like:
+        ******************************************************
+        *  **************  ***************  **************** *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  *            *  *             *  *              * *
+        *  **************  ***************  **************** *
+        ******************************************************
+    """
     def __init__(self, res, bg_color, x_padding, y_padding, left_mid_padding, right_mid_padding):
+        """
+        Args:
+            res (tuple): Frame resolution.
+            bg_color (str or tuple): Background color.
+            x_padding (int): Right and left padding.
+            y_padding (int): Top and bottom padding.
+            left_mid_padding (int): Padding between left and middle AxisFrames.
+            right_mid_padding (int): Padding between middle and right AxisFrames.
+        """
         super().__init__(res, bg_color, x_padding, y_padding)
         self.axis_surface_left = None
         self.axis_surface_middle = None
         self.axis_surface_right = None
         self.left_mid_padding = left_mid_padding
-        self.right_mid_padding = left_mid_padding
+        self.right_mid_padding = right_mid_padding
 
     def add_axis_surfaces(self, res_left, res_middle, res_right, bounds_left, bounds_middle, bounds_right):
+        """
+        Setting AxisSurfaces.
+        Resolution of frames must fit the resolution of frame and paddings.
+
+        Args:
+            res_left (tuple): Resolution of left AxisFrame.
+            res_middle (tuple): Resolution of middle AxisFrame.
+            res_right (tuple): Resolution of right AxisFrame.
+            bounds_left (tuple): x and y bounds of left AxisFrame.
+            bounds_middle (tuple): x and y bounds of middle AxisFrame.
+            bounds_right (tuple): x and y bounds of right AxisFrame.
+
+        Raises:
+            ValueError: If resolution don't fit frame resolution and paddings.
+        """
+        if 2*self.x_padding + self.right_mid_padding + self.left_mid_padding \
+           + res_left[0] + res_right[0] + res_middle[0] != self.res[0]:
+            raise ValueError("Given resolutions of frames don't fit on x axis.")
+        if 2*self.y_padding + res_left[1] != self.res[1]:
+            raise ValueError("Resolution of left frame doesn't fit on y axis.")
+        if 2*self.y_padding + res_middle[1] != self.res[1]:
+            raise ValueError("Resolution of middle frame doesn't fit on y axis.")
+        if 2*self.y_padding + res_right[1] != self.res[1]:
+            raise ValueError("Resolution of right frame doesn't fit on y axis.")
+
         self.axis_surface_left = AxisSurface(res_left, *bounds_left)
         self.axis_surface_middle = AxisSurface(res_middle, *bounds_middle)
         self.axis_surface_right = AxisSurface(res_right, *bounds_right)
 
     def add_equal_axis_surfaces(self, bounds_left, bounds_middle, bounds_right):
+        """
+        Setting AxisFrames of same resolution, calculated by frame resolution and paddings.
+        """
         x = (self.res[0] - 2*self.x_padding - self.left_mid_padding - self.right_mid_padding)//3
         y = self.res[1] - 2*self.y_padding
         self.add_axis_surfaces((x, y), (x, y), (x, y), bounds_left, bounds_middle, bounds_right)
 
     def blit_axis_surfaces(self):
+        """
+        Blitting all queues in AxisFrames and AxisFrames to main Frame.
+        """
         self.axis_surface_left.blit_parametric_queue()
         self.axis_surface_left.blit_filled_queue()
         self.axis_surface_right.blit_parametric_queue()
@@ -807,6 +887,14 @@ class ThreeAxisFrame(Frame):
                            + self.axis_surface_middle.res[0] + self.right_mid_padding, self.y_padding))
 
     def blit_frames_around_axis_surfaces(self, settings, x_inner_bounds=0, y_inner_bounds=0):
+        """
+        Blitting boundaries of AxisSurfaces.
+
+        Args:
+            settings (dict): Blitting settings.
+            x_inner_bounds (int, optional): Inner x padding in pixels.
+            y_inner_bounds (int, optional): Inner y padding in pixels.
+        """
         color = objects.ColorParser.parse_color(settings['color'])
         thickness = settings['thickness']
 
@@ -908,62 +996,6 @@ class Film:
         out.release()
 
 
-class SingleAnimation:
-    """
-        Smoothly animate single variable change.
-
-        Attributes:
-            frame_generator (func): Function with argument t returning Frame.
-            differential (func): Function R->R specifying growth rate per second.
-        """
-    def __init__(self, frame_generator, differential):
-        self.frame_generator = frame_generator
-        self.differential = differential
-
-    def render(self, filename, settings, save_ram=True, id_='', start_from=0, read_only=False,
-               precision=1000, speed=1):
-        duration = settings['duration']
-        film = Film(settings['fps'], settings['resolution'], id=id_)
-        fps = settings['fps']//speed
-
-        t = lambda h: sum([self.differential(k/(fps*precision)) for k in range(math.floor(h*fps)*precision)])/(fps*precision)
-        prev_t = math.nan
-        last_frame = None
-        for dt in np.arange(start_from/fps, duration, 1/fps):
-            debug(f'[{round(dt*fps)}/{round(fps*duration)} ({int(100*(round(dt*fps))/(fps*duration))}%), t={t(dt): .3f}]', short=False)
-            if read_only:
-                film.frame_counter += 1
-            elif math.isclose(t(dt), prev_t, abs_tol=1/(10*precision)):
-                film.add_frame(last_frame, save_ram=save_ram)
-            else:
-                last_frame = self.frame_generator(t(dt))
-                film.add_frame(last_frame, save_ram=save_ram)
-            prev_t = t(dt)
-        film.render(filename, save_ram)
-
-    @staticmethod
-    def blend_lists(lists, t):
-        return list((1 - t + math.floor(t)) * np.array(lists[math.floor(t)])
-                     + (t - math.floor(t)) * np.array(lists[min(math.floor(t) + 1, len(lists) - 1)]))
-
-    @staticmethod
-    def blend_functions(foos, t):
-        return lambda x: (1 - t + math.floor(t)) * foos[math.floor(t)](x) + \
-                         (t - math.floor(t)) * foos[min(math.floor(t) + 1, len(foos) - 1)](x)
-
-
-class FunctionSequenceAnimation(SingleAnimation):
-    def __init__(self, sequence, differential, frame_generator_from_foo):
-        frame_generator = lambda t: frame_generator_from_foo(self.blend_functions(sequence, t))
-        super().__init__(frame_generator, normalize_function(make_periodic(differential)))
-
-
-class IntervalSequenceAnimation(SingleAnimation):
-    def __init__(self, sequence, differential, frame_generator_from_interval):
-        frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
-        super().__init__(frame_generator, differential)
-
-
 class MultiDifferentialAnimation:
     def __init__(self, frame_generator, *differentials):
         self.frame_generator = frame_generator
@@ -971,6 +1003,21 @@ class MultiDifferentialAnimation:
 
     def render(self, filename, settings, save_ram=False, id_='', start_from=0, read_only=False,
                precision=1000, speed=1, integrated=False):
+        """
+        Rendering the animation.
+
+        Args:
+            filename (str): Name of file of the video to be saved in.
+            settings (dict): Render settings.
+            save_ram (bool, optional): If True, frames will be saved in tmp directory and not stored in RAM memory.
+            id_ (str, optional): Prefix of temporary files. Change it in case of rendering more than one video at once or
+                needing to keep frames saved.
+            start_from (int, optional): Number of starting frame.
+            read_only (bool, optional): If True the frames will not be generated, only read from tmp directory. Use it
+                in case of previously interrupted render or rendering not from the beginning.
+            precision (int): Precision of numerical computation of differential.
+            speed (float): Value of differential t per second.
+        """
         duration = settings['duration']
         film = Film(settings['fps'], settings['resolution'], id=id_)
         fps = settings['fps'] // speed
@@ -979,8 +1026,12 @@ class MultiDifferentialAnimation:
             return lambda h: sum([foo((k+1) / (fps * precision)) for k in range(math.floor(h * fps) * precision)]) / (
                                   fps * precision)
 
-        if not integrated:
+        if not integrated and not isinstance(self.differentials[0], objects.ElementalFunction):
             t = [integral(differential) for differential in self.differentials]
+        elif not integrated:
+            def make_integral(differential):
+                return lambda h: differential.integral(0, h)
+            t = [make_integral(differential) for differential in self.differentials]
         else:
             t = self.differentials
 
@@ -1001,6 +1052,98 @@ class MultiDifferentialAnimation:
                 film.add_frame(last_frame, save_ram=save_ram)
             prev_t = copy.copy(current_t)
         film.render(filename, save_ram)
+
+    @staticmethod
+    def blend_lists(lists, t):
+        """
+        Returning convex combination of vectors based on parameter t.
+
+        Args:
+            lists (list): List of vectors (python lists, tuples or np.arrays)
+            t (float): parameter of convex combination. Floor of this value will index the pair of vectors,
+                fraction part will be the combination parameter.
+        """
+        return list((1 - t + math.floor(t)) * np.array(lists[math.floor(t)])
+                    + (t - math.floor(t)) * np.array(lists[min(math.floor(t) + 1, len(lists) - 1)]))
+
+    @staticmethod
+    def blend_functions(foos, t):
+        """
+        Returning convex combination of functions based on parameter t.
+
+        Args:
+            foos (list): List of functions.
+            t (float): parameter of convex combination. Floor of this value will index the pair of vectors,
+                fraction part will be the combination parameter.        """
+        return lambda x: (1 - t + math.floor(t)) * foos[math.floor(t)](x) + \
+                         (t - math.floor(t)) * foos[min(math.floor(t) + 1, len(foos) - 1)](x)
+
+
+class SingleAnimation(MultiDifferentialAnimation):
+    """
+        Smoothly animate single variable change.
+
+        Attributes:
+            frame_generator (func): Function with argument t returning Frame.
+            differential (func): Function R->R specifying growth rate per second.
+        """
+    def __init__(self, frame_generator, differential):
+        super().__init__(frame_generator, differential)
+
+    @deprecation.deprecated(deprecated_in='1.2.0')
+    def _render(self, filename, settings, save_ram=True, id_='', start_from=0, read_only=False,
+                precision=1000, speed=1):
+        """
+        Rendering the animation.
+
+        Args:
+            filename (str): Name of file of the video to be saved in.
+            settings (dict): Render settings.
+            save_ram (bool, optional): If True, frames will be saved in tmp directory and not stored in RAM memory.
+            id_ (str, optional): Prefix of temporary files. Change it in case of rendering more than one video at once or
+                needing to keep frames saved.
+            start_from (int, optional): Number of starting frame.
+            read_only (bool, optional): If True the frames will not be generated, only read from tmp directory. Use it
+                in case of previously interrupted render or rendering not from the beginning.
+            precision (int): Precision of numerical computation of differential.
+            speed (float): Value of differential t per second.
+        """
+        duration = settings['duration']
+        film = Film(settings['fps'], settings['resolution'], id=id_)
+        fps = settings['fps']//speed
+
+        t = lambda h: sum([self.differentials[0](k/(fps*precision)) for k in range(math.floor(h*fps)*precision)])/(fps*precision)
+        prev_t = math.nan
+        last_frame = None
+        for dt in np.arange(start_from/fps, duration, 1/fps):
+            debug(f'[{round(dt*fps)}/{round(fps*duration)} ({int(100*(round(dt*fps))/(fps*duration))}%), t={t(dt): .3f}]', short=False)
+            if read_only:
+                film.frame_counter += 1
+            elif math.isclose(t(dt), prev_t, abs_tol=1/(10*precision)):
+                film.add_frame(last_frame, save_ram=save_ram)
+            else:
+                last_frame = self.frame_generator(t(dt))
+                film.add_frame(last_frame, save_ram=save_ram)
+            prev_t = t(dt)
+        film.render(filename, save_ram)
+
+
+class FunctionSequenceAnimation(SingleAnimation):
+    """
+    Smooth animation of sequence of functions.
+    """
+    def __init__(self, sequence, differential, frame_generator_from_foo):
+        frame_generator = lambda t: frame_generator_from_foo(self.blend_functions(sequence, t))
+        super().__init__(frame_generator, normalize_function(make_periodic(differential)))
+
+
+class IntervalSequenceAnimation(SingleAnimation):
+    """
+    Smooth animation of sequence of vectors.
+    """
+    def __init__(self, sequence, differential, frame_generator_from_interval):
+        frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
+        super().__init__(frame_generator, differential)
 
 
 if __name__ == '__main__':

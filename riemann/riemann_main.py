@@ -322,21 +322,22 @@ def smooth_animate_divisions(divisions, resolution, speed, bigger_ab_at=2, filen
     animation.render(filename, settings, save_ram=True, id_='div', speed=speed)
 
 
-def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_sums.mp4'):
+def smooth_lower_sums_op(divisions, foos, resolution=FHD, speed=1, filename='op_lower_sums.mp4'):
     foo_settings = objects.PredefinedSettings.t2b0white
     axis_settings = objects.PredefinedSettings.t2b0white
-    blended_rec_settings = {
+    blended_rec_settings1 = {
         'sampling rate': 3,
         'thickness': 0,
         'blur': 0,
-        'color': 'magic mint'
+        'color': 'baby blue eyes'
     }
-    dash_settings = {
-        'sampling rate': 10,
-        'thickness': 2,
-        'blur': 2,
-        'color': 'gray'
+    blended_rec_settings2 = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'uranian blue'
     }
+
     divs_and_foo = []
     for divs, foo in zip(divisions, foos):
         divs_and_foo += [(div, foo) for div in divs]
@@ -352,26 +353,36 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
         func = basic_func.SingleAnimation.blend_functions(foos, t1)
         x_bounds = (division[0] - 1, division[-1] + 1)
         y_bounds = (-1, 3)
-        frame = basic_func.OneAxisFrame(resolution, 'black', 5, 5)
+        frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
         frame.add_axis_surface(x_bounds, y_bounds)
 
-        for interval in zip(division[:-1], division[1:]):
-
+        for interval in list(zip(division[:-1], division[1:]))[::2]:
             level = objects.Function(const=t0*find_inf(func, interval) + (1-t0)*find_sup(func, interval)) \
                 if math.floor(t) % 2 == 0 \
                 else objects.Function(const=(1-t0)*find_inf(func, interval) + t0*find_sup(func, interval))
             level.add_bounds(interval)
             blended_rec = objects.FilledObject(level, objects.Function(const=0), interval)
-            frame.axis_surface.blit_filled_object(blended_rec, blended_rec_settings, interval, queue=True)
+            frame.axis_surface.blit_filled_object(blended_rec, blended_rec_settings1, interval, queue=True)
         frame.axis_surface.blit_filled_queue()
+
+        for interval in list(zip(division[:-1], division[1:]))[1::2]:
+            level = objects.Function(const=t0*find_inf(func, interval) + (1-t0)*find_sup(func, interval)) \
+                if math.floor(t) % 2 == 0 \
+                else objects.Function(const=(1-t0)*find_inf(func, interval) + t0*find_sup(func, interval))
+            level.add_bounds(interval)
+            blended_rec = objects.FilledObject(level, objects.Function(const=0), interval)
+            frame.axis_surface.blit_filled_object(blended_rec, blended_rec_settings2, interval, queue=True)
+        frame.axis_surface.blit_filled_queue()
+
         frame.axis_surface.blit_parametric_queue()
         frame.blit_axes(axis_settings, x_only=True)
         func_obj = objects.Function(func)
         frame.blit_parametric_object(func_obj, foo_settings)
-        for point in division:
-            line = objects.ParametricObject(make_const(point), lambda x: x, y_bounds)
-            frame.axis_surface.blit_dashed_curve(line, 50, 200, dash_settings, y_bounds, True)
+        # for point in division:
+        #     line = objects.ParametricObject(make_const(point), lambda x: x, y_bounds)
+        #     frame.axis_surface.blit_dashed_curve(line, 50, 200, dash_settings, y_bounds, True)
         frame.blit_axis_surface()
+        frame.generate_png('op_lower_test_frame.png')
         return frame
 
     differential = objects.PredefinedSettings.slow_differential
@@ -381,7 +392,7 @@ def smooth_lower_sums_op(divisions, foos, resolution, speed, filename='op_lower_
         'resolution': resolution,
         'duration': len(divs) - 1
     }
-    animation.render(filename, settings, save_ram=True, id_='op', speed=speed)
+    animation.render(filename, settings, save_ram=True, id_='op', speed=speed, read_only=True)
 
 
 def smooth_animate_change_to_recs(division, foo, resolution, speed, filename='change_to_rec.mp4'):
@@ -570,8 +581,9 @@ def decompose_shape(resolution=FHD, speed=.1, filename='decompose.mp4'):
     animation.render(filename, settings, save_ram=True, id_='op', speed=speed, precision=2000)
 
 
-def get_triple_frame(division, resolution=HD, second_color='red pastel 2'):
-    function = lambda x: (abs(x) - abs(x - 1) + x ** 2 / 15) / 2 + 1.2
+def get_triple_frame(division, resolution=HD, second_color='baby blue eyes'):
+    # function = lambda x: (abs(x) - abs(x - 1) + x ** 2 / 15) / 2 + 1.2
+    function = lambda x: 2*math.exp(x/7)*math.sin(x)**2 + .8
     # division = np.linspace(-4, 4, 10)
     if resolution == FHD:
         frame = basic_func.ThreeAxisFrame(resolution, 'black', 100, 350, 200, 200)
@@ -581,7 +593,7 @@ def get_triple_frame(division, resolution=HD, second_color='red pastel 2'):
 
     x_bounds = (-5, 5)
     area_bounds = (-4, 4)
-    y_bounds = (-.5, 3)
+    y_bounds = (-1, 6)
     bounds = (x_bounds, y_bounds)
     frame.add_equal_axis_surfaces(bounds, bounds, bounds)
 
@@ -608,7 +620,7 @@ def get_triple_frame(division, resolution=HD, second_color='red pastel 2'):
         'sampling rate': 3,
         'thickness': 0,
         'blur': 0,
-        'color': 'red pastel 1'
+        'color': 'uranian blue'
     }
     settings_rec_2 = {
         'sampling rate': 3,
@@ -656,10 +668,10 @@ def triple_densing(densing_function, no_frames, fps, resolution=FHD):
         division = np.linspace(*area_bounds, densing_function(i))
         film.add_frame(get_triple_frame(division, resolution), save_ram=True)
         print(f'{i+1}/{no_frames} ({int(100*(i+1)/no_frames)}%)')
-    film.render('triple_densing.mp4', save_ram=True)
+    film.render('triple_densing2.mp4', save_ram=True)
 
 
-def triple_moving(divisions, speed, resolution=HD, filename='triple_moving.mp4'):
+def triple_moving(divisions, speed, resolution=FHD, filename='triple_moving.mp4'):
     animator = basic_func.IntervalSequenceAnimation(divisions, basic_func.normalize_function(basic_func.make_periodic(objects.PredefinedSettings.slow_differential)),
                                                     lambda d: get_triple_frame(d, resolution))
     settings = {
@@ -667,7 +679,7 @@ def triple_moving(divisions, speed, resolution=HD, filename='triple_moving.mp4')
         'resolution': resolution,
         'duration': len(divisions) - 1
     }
-    animator.render(filename, settings, save_ram=True, id_='op', speed=speed)
+    animator.render(filename, settings, save_ram=True, id_='triple', speed=speed)
 
 
 def no_frame():
@@ -1230,6 +1242,12 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
         'blur': 0,
         'color': 'gray'
     }
+    settings_white = {
+        'sampling rate': 1,
+        'thickness': 2,
+        'blur': 0,
+        'color': 'white'
+    }
     settings_recs1 = {
         'sampling rate': 3,
         'thickness': 0,
@@ -1270,7 +1288,7 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
         lines = [objects.ParametricObject(make_const(point), lambda x: x, [-init_x_length, init_x_length])
                  for point in division]
         grid = functools.reduce(lambda x, y: x.stack_parametric_objects(y), lines)
-        frame.axis_surface.blit_parametric_object(grid, settings_bounds,
+        frame.axis_surface.blit_parametric_object(grid, settings_white,
                                                   interval_of_param=(-init_x_length, (2*len(lines) - 1)*init_x_length))
         frame.blit_axis_surface()
         return frame
@@ -1286,11 +1304,29 @@ def flying_recs(filename='flying_recs.mp4', resolution=FHD, speed=1):
 
     settings = {
         'fps': 24,
-        'duration': 4,
+        'duration': 2,
         'resolution': resolution
     }
 
     animator.render(filename, settings, speed=speed)
+
+
+def logo(filename='logo.png'):
+    integral_settings = {
+        'sampling rate': 3,
+        'thickness': 0,
+        'blur': 0,
+        'color': 'baby blue eyes'
+    }
+    frame = basic_func.OneAxisFrame((1000, 1000), 'black', 100, 100)
+    frame.add_axis_surface((-1, 7), (-1.5, 6))
+    foo = objects.Function(lambda x: 2*math.exp(x/7)*math.sin(x)**2 + .8)
+    frame.blit_axes(objects.PredefinedSettings.fhd_foo, x_only=True)
+    integral = objects.FilledObject(foo, objects.Function(const=0), (0, 6))
+    frame.axis_surface.blit_filled_object(integral, integral_settings)
+    frame.blit_parametric_object(foo, objects.PredefinedSettings.fhd_foo)
+    frame.blit_axis_surface()
+    frame.generate_png(filename)
 
 
 if __name__ == '__main__':
@@ -1375,4 +1411,5 @@ if __name__ == '__main__':
     # bold([-1, -.4, -.15, .1, .3, .45, .7, .9, 1], [.45, .7], lambda x: math.exp(x / 2) * math.sin(5 * x) ** 2 + 1.2,
     #      resolution=FHD, speed=.4, light_color='banana mania', dark_color='coyote brown')
     # decompose_shape(FHD, .1)
-    plum_dirichlet(speed=.3, resolution=FHD)
+    # plum_dirichlet(speed=.3, resolution=FHD)
+    triple_densing(lambda x: int(x*math.log(x+2) + 1), 60, 3)
