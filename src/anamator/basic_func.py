@@ -373,7 +373,9 @@ class AxisSurface(Surface):
                 If not specified, the surfaces x_bound will be used
             queue (bool, optional): If True object will be added to blitting queue to be blitted later
         """
-        if interval_of_param is None:
+        if obj.bounds is not None and interval_of_param is None:
+            interval_of_param = obj.bounds
+        elif interval_of_param is None:
             interval_of_param = self.x_bounds
 
         if queue:
@@ -717,6 +719,39 @@ class AxisSurface(Surface):
         if not queue:
             self.blit_parametric_queue()
 
+    def blit_3d_object(self, obj, settings, point_transformation=lambda x: x):
+        points = []
+        for u in np.linspace(*obj.u_bounds, settings['u sampling']):
+            for v in np.linspace(*obj.v_bounds, settings['v sampling']):
+                p = (obj.x_equation(u, v), obj.y_equation(u, v), obj.z_equation(u, v))
+                if None not in p:
+                    p = np.array(p)
+                    points.append(point_transformation(p))
+
+        points.sort(key=lambda x: x[2], reverse=True)
+        min_z, max_z = points[-1][2], points[0][2]
+        spread = max_z - min_z
+        c1, c2 = settings['front color'], settings['back color']
+
+        for point in points:
+            color = np.array(objects.ColorParser.blend(c2, c1, (max_z - point[2])/spread))
+            pixel_point = self.transform_to_pixel_coordinates(point[:2])
+            if self.check_if_point_is_valid(pixel_point):
+                bottom_alpha = self.bitmap[pixel_point[0], pixel_point[1], 3]
+                top_alpha = color[3]
+                self.bitmap[pixel_point[0], pixel_point[1], :3] = top_alpha*color[:3] + bottom_alpha*(1 - top_alpha)*self.bitmap[pixel_point[0], pixel_point[1], :3]
+                self.bitmap[pixel_point[0], pixel_point[1], 3] = 1 - (1 - bottom_alpha)*(1 - top_alpha)
+
+    def blit_vector(self, start, end, settings_line, settings_arrow=None, arrow_path='img//arrow.png',
+                    position_correction=(0, 0), angle_correction=0):
+        line = objects.PolygonalChain((start, end))
+        arrow = objects.ImageObject(arrow_path)
+        angle = math.atan((end[1] - start[1])/(end[0] - start[0]))
+        arrow.rotate(angle + angle_correction + math.pi*int(end[1] < start[1]))
+        arrow.fill_color(settings_line['color'])
+        self.blit_parametric_object(line, settings=settings_line, interval_of_param=(0, .99))
+        self.blit_bitmap_object(np.array(end) + np.array(position_correction), arrow, settings_arrow)
+
 
 class Frame(Surface):
     """
@@ -793,7 +828,7 @@ class OneAxisFrame(Frame):
         """
         Blit axes image to the axis surface.
         Args:
-            settings (dict): Blitting settings.
+            settings (dict or objects.ParametricBlittingSettings): Blitting settings.
             x_only (bool): If True only x axis will be blitted.
         """
         self.axis_surface.blit_axes(settings, x_only=x_only)
@@ -1008,7 +1043,7 @@ class MultiDifferentialAnimation:
 
         Args:
             filename (str): Name of file of the video to be saved in.
-            settings (dict): Render settings.
+            settings (dict or object.RenderSettings): Render settings.
             save_ram (bool, optional): If True, frames will be saved in tmp directory and not stored in RAM memory.
             id_ (str, optional): Prefix of temporary files. Change it in case of rendering more than one video at once or
                 needing to keep frames saved.
@@ -1144,6 +1179,127 @@ class IntervalSequenceAnimation(SingleAnimation):
     def __init__(self, sequence, differential, frame_generator_from_interval):
         frame_generator = lambda t: frame_generator_from_interval(self.blend_lists(sequence, t))
         super().__init__(frame_generator, differential)
+
+
+class PipeInstance:
+    def __init__(self, settings, obj=None, queue=False, blitting_type=None, **kwargs):
+        self.obj = obj
+        self.settings = settings
+        self.queue = queue
+        self.blitting_type = blitting_type
+        self.kwargs = kwargs
+
+    def blit(self, frame):
+        if isinstance(self.obj, objects.ParametricObject):
+            if 'interval_of_param' not in self.kwargs.keys():
+                self.kwargs['interval_of_param'] = self.obj.bounds
+            frame.axis_surface.blit_parametric_object(self.obj, settings=self.settings, queue=self.queue,
+                                                      interval_of_param=self.kwargs['interval_of_param'])
+            return
+        if isinstance(self.obj, objects.FilledObject):
+            if 'interval_of_param' not in self.kwargs.keys():
+                self.kwargs['interval_of_param'] = self.obj.interval
+            frame.axis_surface.blit_filled_object(self.obj, settings=self.settings, queue=self.queue,
+                                                  interval_of_param=self.kwargs['interval_of_param'])
+            return
+        if self.blitting_type == 'bitmap':
+            if 'surface_coordinates' not in self.kwargs.keys():
+                self.kwargs['surface_coordinates'] = True
+            if hasattr(self.obj, '__getitem__'):
+                frame.axis_surface.blit_distinct_bitmap_objects(self.kwargs['centers'], self.obj, self.settings,
+                                                                surface_coordinates=self.kwargs['surface_coordinates'])
+            else:
+                frame.axis_surface.blit_bitmap_object(self.kwargs['center'], self.obj, self.settings,
+                                                      surface_coordinates=self.kwargs['surface_coordinates'])
+        if self.blitting_type == 'axis' or self.blitting_type == 'axes':
+            frame.axis_surface.blit_axes(self.settings)
+        if self.blitting_type == 'x axis':
+            frame.axis_surface.blit_axes(self.settings, x_only=True)
+        if self.blitting_type == 'x scale':
+            frame.axis_surface.blit_scale(self.settings, x_interval=self.kwargs['x_interval'], x_length=self.kwargs['x_length'])
+        if self.blitting_type == 'y scale':
+            frame.axis_surface.blit_scale(self.settings, y_interval=self.kwargs['y_interval'], y_length=self.kwargs['y_length'])
+        if self.blitting_type == 'closed point':
+            frame.axis_surface.blit_closed_point(self.kwargs['coords'], self.kwargs['radius'], self.settings, self.queue)
+        if self.blitting_type == 'open point':
+            frame.axis_surface.blit_open_point(self.kwargs['coords'], self.kwargs['radius'], self.settings, self.queue)
+        if self.blitting_type == 'dash':
+            if 'precision' not in self.kwargs.keys():
+                self.kwargs['precision'] = 50
+            frame.axis_surface.blit_dashed_curve(self, self.obj, self.kwargs['number_of_dashes'],
+                                                 precision=self.kwargs['precision'], settings=self.settings,
+                                                 interval_of_param=None, queue=self.queue)
+        if self.blitting_type == 'vector':
+            if 'settings_arrow' not in self.kwargs.keys():
+                self.kwargs['settings_arrow'] = None
+            if 'arrow_path' not in self.kwargs.keys():
+                self.kwargs['arrow_path'] = 'img//arrow.png'
+            if 'position_correction' not in self.kwargs.keys():
+                self.kwargs['position_correction'] = (0, 0)
+            if 'angle_correction' not in self.kwargs.keys():
+                self.kwargs['angle_correction'] = 0
+            frame.axis_surface.blit_vector(self.kwargs['start'], self.kwargs['end'], self.settings,
+                                           settings_arrow=self.kwargs['settings_arrow'],
+                                           arrow_path=self.kwargs['arrow_path'],
+                                           position_correction=self.kwargs['position_correction'],
+                                           angle_correction=self.kwargs['angle_correction'])
+
+
+class AnimationPipeline:
+    def __init__(self, elements_generator, bounds_generator, differentials):
+        self.elements_generator = elements_generator
+        self.bounds_generator = bounds_generator
+        self.differentials = differentials
+
+    def render(self, filename, settings, png_filename=None, speed=1, id_='dupa', start_from=0, read_only=False,
+               precision=1000, integrated=False):
+        def frame_generator(*t):
+            frame = OneAxisFrame(settings['resolution'], settings['bg color'], settings['x padding'], settings['y padding'])
+            frame.add_axis_surface(*self.bounds_generator(*t))
+            elements = self.elements_generator(*t)
+            for instance in elements:
+                instance.blit(frame)
+            frame.blit_axis_surface()
+            if png_filename:
+                frame.generate_png(filename)
+            return frame
+
+        animator = MultiDifferentialAnimation(frame_generator, *self.differentials)
+        animator.render(filename, settings, save_ram=True, speed=speed, id_=id_, start_from=start_from,
+                        read_only=read_only, precision=precision, integrated=integrated)
+
+
+class AnalyticGeometry:
+    @staticmethod
+    def rotation_matrix(angle):
+        return objects.PredefinedSettings.rotation_matrix(angle)
+
+    @staticmethod
+    def rotate_point(point, angle):
+        print(AnalyticGeometry.rotation_matrix(angle))
+        return (AnalyticGeometry.rotation_matrix(angle) @ np.array(point)[:, np.newaxis]).T
+
+    @staticmethod
+    def crossing_point_of_functions(foo1, foo2, domain, precision=1000):
+        f = objects.Function(lambda x: foo1(x) - foo2(x))
+        x = f.zeros(domain, precision=precision)[0]
+        return x, foo1(x)
+
+    @staticmethod
+    def line_between_points(p1, p2, interval):
+        return objects.ParametricObject(lambda t: p1[0] + t * p2[0], lambda t: p1[1] + t * p2[1],
+                                        bounds=interval)
+
+
+
+
+
+
+
+
+
+
+
 
 
 if __name__ == '__main__':

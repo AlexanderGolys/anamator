@@ -6,9 +6,13 @@ import itertools
 import numpy as np
 
 from src.anamator import basic_func, objects
+from math import pi, sin, cos, exp
+from src.anamator.basic_func import *
+from src.anamator.objects import *
 
 
 FHD = (1920, 1080)
+HD = (1280, 720)
 
 
 def testing_dashed_line():
@@ -427,7 +431,184 @@ def test_multi():
     animator.render('test_multi2.mp4', settings, save_ram=True, speed=.5)
 
 
+def test_3d(sampling_rate=1000):
+    x_eq = lambda u, v: (1 + v/2*math.cos(u/2))*math.cos(u)
+    y_eq = lambda u, v: (1 + v/2*math.cos(u/2))*math.sin(u)
+    z_eq = lambda u, v: v/2*math.sin(u/2)
+    u_bounds = (0, 2*math.pi)
+    v_bounds = (-1, 1)
+    mobius_strip = objects.Parametric3DObject(x_eq, y_eq, z_eq, u_bounds, v_bounds)
 
+    def calc_g(u, v):
+        w = complex(u, v)
+        g1 = -1.5*(w*(1-w**4)/(w**6 + 5**.5*w**3 - 1)).imag
+        g2 = -1.5*(w*(1+w**4)/(w**6 + 5**.5*w**3 - 1)).real
+        g3 = ((1 + w**6)/(w**6 + 5**.5*w**3 - 1)).imag - .5
+        return g1, g2, g3
+
+    def x_eq_boys(u, v):
+        if u**2 + v**2 > 1:
+            return
+        g1, g2, g3 = calc_g(u, v)
+        return g1 / (g1**2 + g2**2 + g3**2)
+
+    def y_eq_boys(u, v):
+        if u**2 + v**2 > 1:
+            return
+        g1, g2, g3 = calc_g(u, v)
+        return g2 / (g1**2 + g2**2 + g3**2)
+
+    def z_eq_boys(u, v):
+        if u**2 + v**2 > 1:
+            return
+        g1, g2, g3 = calc_g(u, v)
+        return g3 / (g1**2 + g2**2 + g3**2)
+
+    boys_surface = objects.Parametric3DObject(x_eq_boys, y_eq_boys, z_eq_boys, (-1, 1), (-1, 1))
+    frame = basic_func.OneAxisFrame((1920, 1080), 'black', 100, 100)
+    frame.add_axis_surface((-3, 3), (-2, 2))
+    # frame.axis_surface.blit_3d_object(mobius_strip, objects.Parametric3DSettings(2000, 300, 'white', 'independence'))
+    frame.axis_surface.blit_3d_object(boys_surface, objects.Parametric3DSettings(sampling_rate, sampling_rate, 'white', 'independence'))
+
+    frame.blit_axis_surface()
+    frame.generate_png('boys.png')
+    return frame
+
+
+def test_rendering_boys():
+    film = basic_func.Film(1, FHD, 'boys')
+    for n in range(10, 4011, 500):
+        print(f'n = {n}')
+        film.add_frame(test_3d(n))
+    film.render('boys.mp4')
+
+
+def rotate_manifold(sampling_rate, resolution):
+    def frame_gen(t):
+        def calc_g(u, v):
+            w = complex(u, v)
+            g1 = -1.5 * (w * (1 - w ** 4) / (w ** 6 + 5 ** .5 * w ** 3 - 1)).imag
+            g2 = -1.5 * (w * (1 + w ** 4) / (w ** 6 + 5 ** .5 * w ** 3 - 1)).real
+            g3 = ((1 + w ** 6) / (w ** 6 + 5 ** .5 * w ** 3 - 1)).imag - .5
+            return g1, g2, g3
+
+        def x_eq_boys(u, v):
+            if u ** 2 + v ** 2 > 1:
+                return
+            g1, g2, g3 = calc_g(u, v)
+            return g1 / (g1 ** 2 + g2 ** 2 + g3 ** 2)
+
+        def y_eq_boys(u, v):
+            if u ** 2 + v ** 2 > 1:
+                return
+            g1, g2, g3 = calc_g(u, v)
+            return g2 / (g1 ** 2 + g2 ** 2 + g3 ** 2)
+
+        def z_eq_boys(u, v):
+            if u ** 2 + v ** 2 > 1.01:
+                return
+            g1, g2, g3 = calc_g(u, v)
+            return g3 / (g1 ** 2 + g2 ** 2 + g3 ** 2)
+        base = np.array([[1/3**.5, 1/3**.5, 1/3**.5],
+                         [-1/2**.5, 1/2**.5, 0],
+                         [1/2, 1/2, -1/2**.5]])
+        inv_base = np.linalg.inv(base)
+        rotation = np.array([[cos(2*pi*t), -sin(2*pi*t), 0],
+                             [sin(2*pi*t), cos(2*pi*t), 0],
+                             [0, 0, 1]])
+
+        rotation_matrix = base @ rotation @ inv_base
+
+        rotate = lambda v: v @ rotation_matrix
+
+        boys_surface = objects.Parametric3DObject(x_eq_boys, y_eq_boys, z_eq_boys, (-1, 1), (-1, 1))
+        frame = basic_func.OneAxisFrame(resolution, 'black', 100, 100)
+        frame.add_axis_surface((-3, 3), (-2, 2))
+        frame.axis_surface.blit_3d_object(boys_surface,
+                                          objects.Parametric3DSettings(sampling_rate, sampling_rate, 'white',
+                                                                       'independence'), point_transformation=rotate)
+
+        frame.blit_axis_surface()
+        frame.generate_png('boys.png')
+        return frame
+
+    animator = basic_func.SingleAnimation(frame_gen, objects.PredefinedSettings.slow_differential)
+    animator.render('rotation.mp4', objects.RenderSettings(12, 1, resolution), save_ram=True, id_='rotate', speed=.2)
+
+
+def boys_roman_homotopy(sampling_rate, resolution, id_='homotopy', filename='roman_to_boys.mp4'):
+    def frame_gen(t0, t1):
+        def x_eq_boys(u, v):
+            return (2**.5*cos(v)**2*cos(2*u) + cos(u)*sin(2*v))/(2 - t0*2**.5*sin(3*u)*sin(2*v))
+
+        def y_eq_boys(u, v):
+            return (2**.5*cos(v)**2*sin(2*u) - sin(u)*sin(2*v))/(2 - t0*2**.5*sin(3*u)*sin(2*v))
+
+        def z_eq_boys(u, v):
+            return 3*cos(v)**2/(2 - t0*2**.5*sin(3*u)*sin(2*v))
+
+        base = np.array([[1/3**.5, 1/3**.5, 1/3**.5],
+                         [-1/2**.5, 1/2**.5, 0],
+                         [1/2, 1/2, -1/2**.5]])
+        inv_base = np.linalg.inv(base)
+        rotation = np.array([[cos(4.1*pi*t1 + pi/8), -sin(4.1*pi*t1 + pi/8), 0],
+                             [sin(4.1*pi*t1 + pi/8), cos(4.1*pi*t1 + pi/8), 0],
+                             [0, 0, 1]])
+        # rotation = np.array([[cos(pi/4), -sin(pi/4), 0],
+        #                      [sin(pi/4), cos(pi/4), 0],
+        #                      [0, 0, 1]])
+
+        rotation_matrix = base @ rotation @ inv_base
+
+        rotate = lambda v: v @ rotation_matrix
+
+        boys_surface = objects.Parametric3DObject(x_eq_boys, y_eq_boys, z_eq_boys, (-pi/2, pi/2), (0, pi))
+        frame = basic_func.OneAxisFrame(resolution, 'black', 0, 0)
+        frame.add_axis_surface((-5, 5), (-3.5, 3.5))
+        frame.axis_surface.blit_3d_object(boys_surface,
+                                          objects.Parametric3DSettings(sampling_rate, sampling_rate, 'white',
+                                                                       'independence'), point_transformation=rotate)
+
+        frame.blit_axis_surface()
+        frame.generate_png('boys_roman.png')
+        return frame
+
+    animator = basic_func.MultiDifferentialAnimation(frame_gen, lambda x: 1, objects.PredefinedSettings.exp_differential)
+    animator.render(filename, objects.RenderSettings(12, 1, resolution), save_ram=True, id_=id_, speed=.1)
+
+
+def stupid_test3():
+    arr = np.zeros((2, 2, 2))
+    arr[:, :, 1] = np.array([2, 2])
+    print(arr)
+
+
+def rescale_image_object(filename, number_of_rotations):
+    img_object = objects.ImageObject(filename)
+    for angle in np.linspace(0, 2*pi, number_of_rotations):
+        img_object.generate_png('rotation_tests//original.png')
+        img_object.rotate(angle, True).generate_png(f'rotation_tests//rotate{angle:.2f}.png')
+
+
+def test_vector():
+    frame = basic_func.OneAxisFrame(FHD)
+    frame.add_axis_surface((-1, 1), (-1, 1))
+    frame.axis_surface.blit_vector((0, 0), (-2**.5/2, 3**.5/2),
+                                   objects.ParametricBlittingSettings(thickness=10, color='green 1', blur=2),
+                                   objects.BitmapBlittingSettings(blur=0), position_correction=[0, 0], angle_correction=-.12)
+    frame.blit_axes(objects.ParametricBlittingSettings())
+    frame.blit_axis_surface()
+    frame.generate_png('test_vector.png')
+
+
+def test_pipeline(filename):
+    pipe = lambda t: [PipeInstance(ParametricBlittingSettings(), blitting_type='axis'),
+                      PipeInstance(ParametricBlittingSettings(), blitting_type='x scale', x_interval=.1, x_length=.01),
+                      PipeInstance(ParametricBlittingSettings(), obj=Function(lambda x: (t+1)*x**2 + t))]
+    bounds = lambda t: [[-2, 2], [-3, 3]]
+    differential = [Gaussian(.5, 70, None)]
+    animation = AnimationPipeline(pipe, bounds, differential)
+    animation.render(filename, PipelineSettings())
 
 
 if __name__ == '__main__':
@@ -437,8 +618,15 @@ if __name__ == '__main__':
     # test_single_animator_1(save_ram=True, id='t1__', start_from=0, read_only=
     # testing_dashed_line()
     # test_blitting_recs()
-#     stupid_test()
-#     test_blitting_images()
-#     test_3_axis_frame()
-#     stupid_test2()
-    test_multi()
+    # stupid_test()
+    # test_blitting_images()
+    # test_3_axis_frame()
+    # stupid_test2()
+    # test_multi()
+    # test_3d()
+    # test_rendering_boys()
+    # rotate_manifold(2500, HD)
+    # boys_roman_homotopy(1500, HD, id_='exp_homotopy', filename='roman_to_boys_static.mp4')
+    # rescale_image_object('img//turtle.png', 7)
+    # test_vector()
+    test_pipeline('pipe.mp4')

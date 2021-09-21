@@ -9,6 +9,7 @@ import deprecation
 from abc import ABC, abstractmethod
 from PIL import Image
 from scipy.special import erf
+from math import pi, sin, cos, exp
 
 
 HD = (1280, 720)
@@ -83,7 +84,11 @@ class ColorParser:
             'opal': (171, 200, 199, 1),
             'monatee': (171, 171, 189, 1),
             'baby blue eyes': (162, 210, 255, 1),
-            'uranian blue': (189, 224, 254, 1)
+            'uranian blue': (189, 224, 254, 1),
+            'blush': (234, 99, 140, 1),
+            'claret': (137, 2, 62, 1),
+            'independence': (52, 67, 94, 1)
+
         }
         if isinstance(color, str) and color[0] != '#':
             try:
@@ -192,10 +197,20 @@ class BitmapObject(Object):
         res (tuple of ints): Image resolution
     """
 
-    def __init__(self, image, res):
+    def __init__(self, image, res=None):
         super().__init__()
         self.bitmap = image
-        self.res = res
+
+    @property
+    def res(self):
+        return self.bitmap.shape[:2]
+
+    @res.setter
+    def res(self, value):
+        value = np.array(value)
+        if value != self.bitmap.shape[:2]:
+            raise ValueError(f'Shapes do not match: {value} vs {self.bitmap.shape[:2]}')
+
 
     def reshape(self, new_size):
         """
@@ -206,7 +221,7 @@ class BitmapObject(Object):
         """
 
         img = Image.fromarray(self.bitmap, "RGBA")
-        img.resize(new_size)
+        img = img.resize(new_size)
         self.bitmap = np.array(img)
         self.res = new_size
 
@@ -224,8 +239,54 @@ class BitmapObject(Object):
         """
 
         img = Image.fromarray(img_bitmap, "RGBA")
-        img.resize(new_size)
+        img = img.resize(new_size)
         return np.array(img)
+
+    def fill_color(self, color):
+        color = ColorParser.parse_color(color)[:3]
+        self.bitmap[:, :, :3] = color
+
+    def point_is_valid(self, point):
+        x, y = point
+        x_res, y_res = self.bitmap.shape[:2]
+        return 0 <= x < x_res and 0 <= y < y_res
+
+    def rotate(self, angle, new_instance=False, convolution_size=1, convolution_kernel='box'):
+        rotation_matrix = np.array([[cos(angle), -sin(angle)],
+                                    [sin(angle), cos(angle)]])
+        reverse_rotation = np.linalg.inv(rotation_matrix)
+
+        new_len = max(int(self.bitmap.shape[0]*1.5), int(self.bitmap.shape[1]*1.5))
+        new_bitmap_shape = [new_len, new_len, self.bitmap.shape[2]]
+        new_bitmap = np.zeros(new_bitmap_shape)
+        x_size, y_size = new_bitmap.shape[:2]
+        original_x, original_y = self.bitmap.shape[:2]
+        for x in range(x_size):
+            for y in range(y_size):
+                corresponding_pixel = np.array([x-x_size//2, y-y_size//2]) @ reverse_rotation + np.array([original_x//2, original_y//2])
+                c_x, c_y = list(map(int, corresponding_pixel))
+                if convolution_size != 0 and self.point_is_valid((c_x-convolution_size, c_y-convolution_size)) \
+                   and self.point_is_valid((c_x+convolution_size, c_y+convolution_size)):
+                    if convolution_kernel == 'box':
+                        new_bitmap[x, y, :] = np.mean(self.bitmap[c_x-convolution_size:c_x+convolution_size+1,
+                                                      c_y-convolution_size:c_y+convolution_size+1, :], axis=(0, 1))
+                    else:
+                        new_bitmap[x, y, :] = np.mean(self.bitmap[c_x - convolution_size:c_x + convolution_size + 1,
+                                                      c_y - convolution_size:c_y + convolution_size + 1,
+                                                      :]*convolution_kernel, axis=(0, 1))
+                elif self.point_is_valid((c_x, c_y)):
+                    new_bitmap[x, y, :] = self.bitmap[c_x, c_y, :]
+
+        if new_instance:
+            return BitmapObject(new_bitmap, new_bitmap.shape[:2])
+        self.bitmap = new_bitmap
+
+    def generate_png(self, filename):
+        scaled_alpha = self.bitmap.astype('uint8')
+        # scaled_alpha = np.transpose(scaled_alpha, (1, 0, 2))[::-1, :, :]
+        scaled_alpha[:, :, 3] *= 255
+        img = Image.fromarray(scaled_alpha)
+        img.save(filename)
 
 
 class ImageObject(BitmapObject):
@@ -649,6 +710,30 @@ class BitmapBlittingSettings(Settings):
         super().__init__(dictionary)
 
 
+class Parametric3DSettings(Settings):
+    def __init__(self, u_sampling, v_sampling, f_color, b_color):
+        dic = {
+            'u sampling': u_sampling,
+            'v sampling': v_sampling,
+            'front color': ColorParser.parse_color(f_color),
+            'back color': ColorParser.parse_color(b_color)
+        }
+        super().__init__(dic)
+
+
+class PipelineSettings(Settings):
+    def __init__(self, fps=24, duration=1, resolution=FHD, x_padding=100, y_padding=100, bg_color='black'):
+        dictionary = {
+            'fps': fps,
+            'duration': duration,
+            'resolution': resolution,
+            'x padding': x_padding,
+            'y padding': y_padding,
+            'bg color': bg_color
+        }
+        super().__init__(dictionary)
+
+
 @abstractmethod
 class ElementalFunction(ABC):
     @abstractmethod
@@ -823,7 +908,27 @@ class PredefinedSettings:
     fast_differential = make_periodic(normalize_function(lambda x: (x - 3 / 8) ** 2 * (5 / 8 - x) ** 2 if abs(x - 1 / 2) < 1 / 8 else 0))
     exp_differential = make_periodic(normalize_function(lambda x: math.exp(-100*(x-1/2)**2)))
 
+    @staticmethod
+    def radius_func_creator(at_75=12, end=8):
+        def radius(x):
+            if x < .75:
+                return at_75 / .75 * x
+            return 4 * (end - at_75) * x - 3 * end + 4 * at_75
+        return radius
 
+    @staticmethod
+    def rotation_matrix(angle):
+        return np.array([[cos(angle), -sin(angle)],
+                         [sin(angle), cos(angle)]])
+
+
+class Parametric3DObject:
+    def __init__(self, equation1, equation2, equation3, bounds1, bounds2):
+        self.x_equation = equation1
+        self.y_equation = equation2
+        self.z_equation = equation3
+        self.u_bounds = bounds1
+        self.v_bounds = bounds2
 
 
 
