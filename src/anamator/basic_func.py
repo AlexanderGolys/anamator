@@ -449,11 +449,19 @@ class AxisSurface(Surface):
         function2 = filled_obj.function2
 
         tmp_bitmap = np.zeros(self.res)
+
+        def round_to_screen(x, y):
+            x = min(max(x, 0), self.res[0])
+            y = min(max(y, 0), self.res[1])
+            return x, y
+
         if filled_obj.is_rec():
             x0, x1 = interval_of_param
             x0, y0 = self.transform_to_pixel_coordinates(function1.get_point(x0))
             x1, y1 = self.transform_to_pixel_coordinates(function2.get_point(x1))
             y0, y1 = sorted([y0, y1])
+            x0, y0 = round_to_screen(x0, y0)
+            x1, y1 = round_to_screen(x1, y1)
             tmp_bitmap[x0:x1, y0:y1] = 1
 
         else:
@@ -586,6 +594,8 @@ class AxisSurface(Surface):
         Blitting single bitmap object, alias for blit_distinct_bitmap_objects with only one object in a list.
         """
         # self.blit_distinct_bitmap_objects([center], [img_object], settings, surface_coordinates=surface_coordinates)
+        if 0 in img_object.res:
+            return
         if surface_coordinates:
             center = self.transform_to_pixel_coordinates(center)
         blur = 0 if settings is None or 'blur' not in settings.keys() else settings['blur']
@@ -1188,6 +1198,8 @@ class PipeInstance:
         self.queue = queue
         self.blitting_type = blitting_type
         self.kwargs = kwargs
+        self.p_queue = False
+        self.f_queue = False
 
     def blit(self, frame):
         if isinstance(self.obj, objects.ParametricObject):
@@ -1195,12 +1207,14 @@ class PipeInstance:
                 self.kwargs['interval_of_param'] = self.obj.bounds
             frame.axis_surface.blit_parametric_object(self.obj, settings=self.settings, queue=self.queue,
                                                       interval_of_param=self.kwargs['interval_of_param'])
+            self.p_queue = self.queue
             return
         if isinstance(self.obj, objects.FilledObject):
             if 'interval_of_param' not in self.kwargs.keys():
                 self.kwargs['interval_of_param'] = self.obj.interval
             frame.axis_surface.blit_filled_object(self.obj, settings=self.settings, queue=self.queue,
                                                   interval_of_param=self.kwargs['interval_of_param'])
+            self.f_queue = self.queue
             return
         if self.blitting_type == 'bitmap':
             if 'surface_coordinates' not in self.kwargs.keys():
@@ -1257,8 +1271,18 @@ class AnimationPipeline:
             frame = OneAxisFrame(settings['resolution'], settings['bg color'], settings['x padding'], settings['y padding'])
             frame.add_axis_surface(*self.bounds_generator(*t))
             elements = self.elements_generator(*t)
+            last_p_queue = False
+            last_f_queue = False
             for instance in elements:
+                if last_f_queue and not instance.queue:
+                    frame.axis_surface.blit_filled_queue()
+                if last_p_queue and not instance.queue:
+                    frame.axis_surface.blit_parametric_queue()
+
                 instance.blit(frame)
+                last_f_queue = instance.f_queue
+                last_p_queue = instance.p_queue
+
             frame.blit_axis_surface()
             if png_filename:
                 frame.generate_png(filename)
@@ -1276,8 +1300,7 @@ class AnalyticGeometry:
 
     @staticmethod
     def rotate_point(point, angle):
-        print(AnalyticGeometry.rotation_matrix(angle))
-        return (AnalyticGeometry.rotation_matrix(angle) @ np.array(point)[:, np.newaxis]).T
+        return AnalyticGeometry.rotation_matrix(angle).dot(np.array(point))
 
     @staticmethod
     def crossing_point_of_functions(foo1, foo2, domain, precision=1000):
@@ -1287,19 +1310,9 @@ class AnalyticGeometry:
 
     @staticmethod
     def line_between_points(p1, p2, interval):
-        return objects.ParametricObject(lambda t: p1[0] + t * p2[0], lambda t: p1[1] + t * p2[1],
+        v = np.array(p2) - np.array(p1)
+        return objects.ParametricObject(lambda t: p1[0] + t * v[0], lambda t: p1[1] + t * v[1],
                                         bounds=interval)
-
-
-
-
-
-
-
-
-
-
-
 
 
 if __name__ == '__main__':

@@ -6,7 +6,20 @@ from src.anamator.objects import *
 
 HD = (1280, 720)
 FHD = (1920, 1080)
+F4K = (3840, 2160)
 SHIT = (640, 480)
+
+
+# RADIUS_FOO = PredefinedSettings.radius_func_creator(12, 8)
+# CIRCLES_THIC = 3
+
+RADIUS_FOO = PredefinedSettings.radius_func_creator(24, 16)
+CIRCLES_THIC = 8
+PADDING = 200
+
+
+def CIRCLE_SETTINGS(color='white'):
+    return ParametricBlittingSettings(3, CIRCLES_THIC, color, 3)
 
 
 def intersection(circ_ctr, pt_coords, r, d):
@@ -15,29 +28,30 @@ def intersection(circ_ctr, pt_coords, r, d):
     return pt_coords[0]-mmm, l_trans
 
 
-def power_point_0(circ_center, circ_r, point_coords):
+def power_point_0(circ_center, circ_r, point_coords, resolution=FHD):
 
-    def radius(x):
-        if x <= 3/4:
-            return int(14*x)
-        if x <= 1:
-            return int(-18*x+24)
-        else:
-            return 6
+    # def radius(x):
+    #     if x <= 3/4:
+    #         return int(14*x)
+    #     if x <= 1:
+    #         return int(-18*x+24)
+    #     else:
+    #         return 6
 
     def frame_generator(t):
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(resolution, 'black', 200, 200)
         frame.add_axis_surface((-172, 172), (-88, 88))
         circle = ParametricObject(lambda x: circ_r*math.cos(x) + circ_center[0], lambda x: circ_r*math.sin(x) + circ_center[1], (0, t*2*math.pi))
-        point = BitmapDisk(2*radius(t), 'white', 1)
-        frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(), interval_of_param=(0, t*2*math.pi))
+        point = BitmapDisk(RADIUS_FOO(t), 'white', 1)
+        if t >= .001:
+            frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(), interval_of_param=(0, t*2*math.pi))
         frame.axis_surface.blit_bitmap_object(point_coords, point, BitmapBlittingSettings(blur=3))
         frame.blit_axis_surface()
         return frame
 
     animator = SingleAnimation(frame_generator, Gaussian(0.5, 70, None))
 
-    animator.render('pp_0.mp4', RenderSettings())
+    animator.render('final//pp_0_blur.mp4', RenderSettings(resolution=resolution), speed=.25)
 
 
 def power_point_1(circ_center, circ_r, point_coords):
@@ -416,7 +430,7 @@ def appolonius_0(ctr, r, ctrs):
     animator.render('appolonius_0.mp4', RenderSettings())
 
 
-def two_cricles_power_0(r1, r2):
+def two_circles_power_0(r1, r2, resolution=FHD, speed=1):
     circ1 = ParametricObject(lambda x: r1*math.cos(x), lambda x: r1*math.sin(x))
 
     def frame_generator(t):
@@ -430,31 +444,41 @@ def two_cricles_power_0(r1, r2):
             p_intersec = [p_x, p_y]
             point = BitmapDisk(12, 'white', 1)
 
-
-        frame = OneAxisFrame(HD)
-        frame.add_axis_surface((-172, 172), (-88, 88))
-        if t==0:
+        frame = OneAxisFrame(resolution)
+        bounds = ((-172, 172), (-88, 88))
+        frame.add_axis_surface(*bounds)
+        if t == 0:
             line_intersec1 = ParametricObject(lambda x: r1, lambda x: x)
             frame.axis_surface.blit_parametric_object(line_intersec1, ParametricBlittingSettings(), interval_of_param=(-88, 88))
-        elif t > 0:
-            line_intersec1 = Function(lambda x: -p_x / (r1 ** 2 - p_x ** 2) ** .5 * (x - p_x) + p_y)
-            line_intersec2 = Function(lambda x: (- p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5 * (x - p_x) + p_y)
+            t_interval = (-pi/2, pi/2)
+        else:
+            a1 = -p_x / (r1 ** 2 - p_x ** 2) ** .5
+            b1 = p_x**2 / (r1 ** 2 - p_x ** 2) ** .5 + p_y
+            a2 = (- p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5
+            b2 = -p_x*(- p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5 + p_y
+            # line_intersec1 = Function(lambda x: a1*x + b1)
+            # line_intersec2 = Function(lambda x: a2*x + b2)
+            line_intersec1 = LinearFunction(a1, b1, bounds)
+            line_intersec2 = LinearFunction(a2, b2, bounds)
+
             frame.axis_surface.blit_parametric_object(line_intersec1, ParametricBlittingSettings())
             frame.axis_surface.blit_parametric_object(line_intersec2, ParametricBlittingSettings())
-            angle = ParametricObject(lambda x: 10*math.cos(x) + p_x, lambda x: 10*math.sin(x) + p_y)
             t2 = -np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5)
-            # the first point is from line_intersec2 (tangent to small circles), the second one from line_intersec1 (tangent to big circle)
-            frame.axis_surface.blit_parametric_object(angle,
-                                                      ParametricBlittingSettings(),
-                                                      interval_of_param=(np.arctan((-p_x + x_2) / (r1 ** 2 -p_x ** 2)**.5), np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5)))
-            # frame.axis_surface.blit_parametric_object(angle,
-            #                                       ParametricBlittingSettings(),
-            #                                       interval_of_param=(
-            #                                       np.arctan((-p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5),
-            #                                       math.pi/2 - np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5)))
+            t_interval = (np.arctan((-p_x + x_2) / (r1 ** 2 -p_x ** 2)**.5), np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5) + pi)
 
-            # print('from r2_', np.arctan((-p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5))
-            # print('from r1_', np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5))
+        angle = ParametricObject(lambda x: 10*math.cos(x) + p_x, lambda x: 10*math.sin(x) + p_y)
+        # the first point is from line_intersec2 (tangent to small circles), the second one from line_intersec1 (tangent to big circle)
+        frame.axis_surface.blit_parametric_object(angle,
+                                                      ParametricBlittingSettings(),
+                                                      interval_of_param=t_interval)
+        # frame.axis_surface.blit_parametric_object(angle,
+        #                                       ParametricBlittingSettings(),
+        #                                       interval_of_param=(
+        #                                       np.arctan((-p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5),
+        #                                       math.pi/2 - np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5)))
+
+        # print('from r2_', np.arctan((-p_x + x_2) / (r1 ** 2 - p_x ** 2) ** .5))
+        # print('from r1_', np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5))
 
         frame.axis_surface.blit_parametric_object(circ1, ParametricBlittingSettings(),
                                                   interval_of_param=(0, 2 * math.pi))
@@ -466,17 +490,16 @@ def two_cricles_power_0(r1, r2):
         return frame
 
     animator = SingleAnimation(frame_generator, Gaussian(0.5, 70, None))
-    animator.render('two_circ_power_0.mp4', RenderSettings(resolution=HD), speed=3)
-
+    animator.render('two_circ_power_0.mp4', RenderSettings(resolution=resolution), speed=speed)
 
 
 if __name__ == '__main__':
-    # power_point_0((0,0), 50, (160, 0))
+    power_point_0((0,0), 50, (160, 0), F4K)
     # power_point_2((0, 0), 50, (160, 0))
     # malfatti_calculations((-120,-50),(270,0), (100,120))
     # malfatti_0((-120, -50), (270, 0), (100, 120))
     # malfatti_1((-120, -50), (270, 0), (100, 120))
     # appolonius_0((0,0), 20, [(16,-32), (38,16), (-24, 32)])
     # print(appolonius_radii((0, 0), 50, [(70, 30), (-70, -100), (-50, 200)]))
-    two_cricles_power_0(50, 30)
-    print('dupa')
+    # two_circles_power_0(50, 30, speed=.1)
+    # print('dupa')

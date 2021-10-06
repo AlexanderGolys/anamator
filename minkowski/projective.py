@@ -4,6 +4,12 @@ from src.anamator.basic_func import *
 from src.anamator.objects import *
 
 
+F4K = (3840, 2160)
+RADIUS_FOO = PredefinedSettings.radius_func_creator(24, 16)
+CIRCLES_THIC = 8
+PADDING = 200
+
+
 def doubling_vectors(filename):
     def frame_generator(*t):
         vectors = [[(0, 0), (1, 2)],
@@ -165,6 +171,8 @@ def rotate_projective_line(filename):
     color2 = 'gray'
     radius = 8
 
+    angle = math.atan(2)
+
     x_start, x_spread = -1.5, 3
     y_start, y_spread = -1.5, 3
     bounds = [[x_start, x_start + x_spread], [y_start, y_start + y_spread]]
@@ -175,19 +183,278 @@ def rotate_projective_line(filename):
     points = [AnalyticGeometry.crossing_point_of_functions(lambda x: 2*x + 1, foo, bounds[0]) for foo in functions]
 
     def pipe(t):
-        rot_points = [AnalyticGeometry.rotate_point(p, 2*pi*t) for p in points]
+        shift = np.array([0, -t])
+        rot_points = [AnalyticGeometry.rotate_point(p, -angle*t) + shift for p in points]
         return [PipeInstance(ParametricBlittingSettings(blur=0, thickness=3), blitting_type='axis')] \
-            + [PipeInstance(ParametricBlittingSettings(thickness=7, color=color, sampling_rate=20),
-                            Function(foo), queue=True) for foo in functions] \
-            + [PipeInstance(BitmapBlittingSettings(), BitmapDisk(10, 'black', 1-t), blitting_type='bitmap',
-                            center=(0, 0))] \
-            + [PipeInstance(ParametricBlittingSettings(thickness=7, color=color2),
-                            AnalyticGeometry.line_between_points(rot_points[0], rot_points[-1], bounds[0]))] \
+            + [PipeInstance(ParametricBlittingSettings(thickness=7, color=color, sampling_rate=20, blur=2),
+                            Function(foo)) for foo in functions] \
+            + [PipeInstance(ParametricBlittingSettings(color=(0, 0, 0, t),
+                                                       sampling_rate=3, thickness=0, blur=0),
+                            FilledObject(Function(const=2), Function(const=-2), interval=[-2, 2]))] \
+            + [PipeInstance(ParametricBlittingSettings(thickness=7, color=color2, blur=0),
+                            AnalyticGeometry.line_between_points(rot_points[0], rot_points[-1], [-10, 10]))] \
             + [PipeInstance(BitmapBlittingSettings(), [BitmapDisk(radius, color, 1)]*len(functions),
-                            blitting_type='bitmap', center=rot_points)]
-    differentials = [Gaussian(.5, 70, None)]
+                            blitting_type='bitmap', centers=rot_points)]
+    differentials = [Gaussian(.5, 50, None)]
     animation = AnimationPipeline(pipe, f_bounds, differentials)
     animation.render(filename, PipelineSettings())
+
+
+def circles_collapsing(filename, speed):
+    r1, r2 = 100, 200
+    # c1, c2 = np.array((200, 150)), np.array((1000, 500))
+    c1, c2 = np.array((-50, 0)), np.array((40, 0))
+
+    between = (c1 + c2)//2
+
+    radius = lambda r, t: int(max(r*(1 - 2*t), 0))
+    number_scale = lambda t: PredefinedSettings.radius_func_creator(200, 100)(max((2*t - 1), 0))/300
+    dot_scale = lambda t: .5*int(t < .5)
+
+    def pipe(t):
+        return [PipeInstance(BitmapBlittingSettings(), ImageObject('minkowski//img//product.png', scale=dot_scale(t)),
+                             blitting_type='bitmap',
+                             center=between),
+                PipeInstance(BitmapBlittingSettings(), BitmapCircle(radius(r1, t), 'white', 7, 1),
+                             blitting_type='bitmap',
+                             center=SingleAnimation.blend_lists([c1, between], min(2*t, 1))),
+                PipeInstance(BitmapBlittingSettings(), BitmapCircle(radius(r2, t), 'white', 7, 1),
+                             blitting_type='bitmap',
+                             center=SingleAnimation.blend_lists([c2, between], min(2 * t, 1))),
+                PipeInstance(BitmapBlittingSettings(), ImageObject('minkowski//img//number.png', scale=number_scale(t)),
+                             blitting_type='bitmap',
+                             center=between)]
+    differentials = [Gaussian(.5, 50, None)]
+    animation = AnimationPipeline(pipe, lambda t: [(-100, 100), (-100, 100)], differentials)
+    animation.render(filename, PipelineSettings(), speed=speed)
+
+
+def different_configurations(number, filename):
+    def color_growing(t):
+        return 'gray' if t > .01 else 'black'
+
+    def color_collapsing(t):
+        return 'gray' if t < .99 else 'black'
+
+    first_r1 = 50
+    first_r2 = 70
+    second_r1 = 40
+    second_r2 = 55
+
+    first_center1 = -100
+    first_center2 = -10
+    second_center1 = -115
+    second_center2 = -30
+
+    third_r = 30
+
+    # distinct to single
+    if number == 1:
+        r1 = first_r1
+        r2 = first_r2
+        c1_old, c2_old = np.array((first_center1, 0)), np.array((first_center2, 0))
+        between = (c1_old + c2_old) // 2
+        radius_vector = np.array([1, 1]) * (r1 + r2) / (2 * 2 ** .5)
+        pipe = lambda t1, t2: [PipeInstance(ParametricBlittingSettings(color=color_growing(t2)),
+                                            PolygonalChain([between, between + t2*radius_vector])),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(SingleAnimation.blend_lists([c1_old, between], t1),
+                                                    (1-t1)*r1 + t1*(r1 + r2)/2,
+                                                    (1-t1)*r1 + t1*(r1 + r2)/2)),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(SingleAnimation.blend_lists([c2_old, between], t1),
+                                                    (1 - t1) * r2 + t1 * (r1 + r2) / 2,
+                                                    (1 - t1) * r2 + t1 * (r1 + r2) / 2)),
+                               ]
+        bounds = lambda t1, t2: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.4, 50, None), Gaussian(.7, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K), speed=.25)
+
+    # single to distinct
+    if number == 2:
+        r1 = second_r1
+        r2 = second_r2
+        c1, c2 = np.array((second_center1, 0)), np.array((second_center2, 0))
+        between = (np.array((first_center1, 0)) + np.array((first_center2, 0)))/2
+        radius_vector = np.array([1, 1]) * (r1 + r2) / (2 * 2 ** .5)
+        pipe = lambda t1, t2: [PipeInstance(ParametricBlittingSettings(color=color_collapsing(t1)),
+                                            PolygonalChain([between, between + (1 - t1) * radius_vector])),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(SingleAnimation.blend_lists([between, c1], t2),
+                                                    t2*r1 + (1 - t2)*(r1 + r2)/2,
+                                                    t2*r1 + (1 - t2)*(r1 + r2)/2)),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(SingleAnimation.blend_lists([between, c2], t2),
+                                                    t2*r2 + (1 - t2)*(r1 + r2)/2,
+                                                    t2*r2 + (1 - t2)*(r1 + r2)/2)),
+                               ]
+        bounds = lambda t1, t2: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.3, 50, None), Gaussian(.6, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K), speed=.25)
+
+    # distinct to orthogonal
+    if number == 3:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((second_center1, 0)), np.array((second_center2, 0))
+        c1_end = (c1_old + c2_old) / 2 - np.array([(r1**2 + r2**2)**.5/2, 0])
+        c2_end = (c1_old + c2_old) / 2 + np.array([(r1 ** 2 + r2 ** 2) ** .5 / 2, 0])
+
+        pipe = lambda t1: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                        Ellipse(SingleAnimation.blend_lists([c1_old, c1_end], t1), r1, r1)),
+                           PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                        Ellipse(SingleAnimation.blend_lists([c2_old, c2_end], t1), r2, r2))]
+        bounds = lambda t1: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.5, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K), speed=.25)
+
+        # orthogonal to tangent
+    if number == 4:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((second_center1, 0)), np.array((second_center2, 0))
+        c1_start = (c1_old + c2_old) / 2 - np.array([(r1 ** 2 + r2 ** 2) ** .5 / 2, 0])
+        c2_start = (c1_old + c2_old) / 2 + np.array([(r1 ** 2 + r2 ** 2) ** .5 / 2, 0])
+
+        c1_end = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2_end = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+
+        pipe = lambda t1: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                        Ellipse(SingleAnimation.blend_lists([c1_start, c1_end], t1), r1, r1)),
+                           PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                        Ellipse(SingleAnimation.blend_lists([c2_start, c2_end], t1), r2, r2))]
+        bounds = lambda t1: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.5, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
+                         speed=.25)
+
+    # tangent to the point
+    if number == 5:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((second_center1, 0)), np.array((second_center2, 0))
+        c1_old = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2_old = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+        c1 = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2 = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+
+        pipe = lambda t1, t2: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(c1, r1, r1)),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                            Ellipse(c2, (1-t1)*r2, (1-t1)*r2)),
+                               PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
+                                            blitting_type='bitmap', center=c2)]
+        bounds = lambda t1, t2: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.3, 50, None), Gaussian(.7, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
+                         speed=.25)
+
+    # point lying on circle
+    if number == 6:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((-50, 0)), np.array((100, 0))
+
+        c1 = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2 = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+        c2_end = c1 + np.array([r1, 0])
+
+        pipe = lambda t: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                       Ellipse(c1, r1, r1)),
+                          PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t), 'white', 1),
+                                       blitting_type='bitmap', center=SingleAnimation.blend_lists([c2, c2_end], t))]
+        bounds = lambda t: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.3, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
+                         speed=.25)
+
+    # two points
+    if number == 7:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((-50, 0)), np.array((100, 0))
+
+        c1 = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2 = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+        c2_end = c1 + np.array([r1, 0])
+
+        between = (c1 + c2_end)/2
+
+        pipe = lambda t1, t2, t3: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+                                                Ellipse(c1, (1-t1)*r1, (1-t1)*r1)),
+                                   PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
+                                                blitting_type='bitmap',
+                                                center=c1),
+                                   PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
+                                                blitting_type='bitmap', center=c2_end),
+                                   PipeInstance(ParametricBlittingSettings(color=color_growing(t3)),
+                                                PolygonalChain([SingleAnimation.blend_lists([between, c1], t3),
+                                                               SingleAnimation.blend_lists([between, c2_end], t3)]))
+                                   ]
+        bounds = lambda t1, t2, t3: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.3, 50, None), Gaussian(.5, 50, None), Gaussian(.7, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
+                         speed=.25)
+
+    # creating circle and line
+    y1_shift = np.array([0, -50])
+    y2_shift = np.array([0, 50])
+
+    if number == 8:
+        r1 = second_r1
+        r2 = second_r2
+        c1_old, c2_old = np.array((-50, 0)), np.array((100, 0))
+
+        c1 = (c1_old + c2_old) / 2 - np.array([(r1 + r2) / 2, 0])
+        c2 = (c1_old + c2_old) / 2 + np.array([(r1 + r2) / 2, 0])
+        c2 = c1 + np.array([r1, 0])
+
+        point_c1 = c1 + y1_shift
+        point_c2 = c2 + y1_shift
+
+        circle_c = c1 + y2_shift
+        line_c = c2 + y2_shift
+
+        r = third_r
+
+        pipe = lambda t1, t2: [PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
+                                            blitting_type='bitmap',
+                                            center=SingleAnimation.blend_lists([c2, point_c2], t1)),
+                               PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
+                                            blitting_type='bitmap',
+                                            center=SingleAnimation.blend_lists([c1, point_c1], t1)),
+                               PipeInstance(ParametricBlittingSettings(color='gray'),
+                                            PolygonalChain([SingleAnimation.blend_lists([c1, point_c1], t1),
+                                                            SingleAnimation.blend_lists([c2, point_c1], t2)])),
+
+                               PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1-t2), 'white', 1),
+                                            blitting_type='bitmap',
+                                            center=SingleAnimation.blend_lists([c2, line_c], t1)),
+                               PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1-t2), 'white', 1),
+                                            blitting_type='bitmap',
+                                            center=SingleAnimation.blend_lists([c1, circle_c], t1)),
+                               PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0,
+                                                                       color=color_growing(t2)),
+                                            Ellipse(circle_c, t2*r, t2*r)),
+                               PipeInstance(ParametricBlittingSettings(color='white'),
+                                            PolygonalChain([SingleAnimation.blend_lists([c1, circle_c], t1),
+                                                            SingleAnimation.blend_lists([c2, line_c], t2)])),
+                               PipeInstance(ParametricBlittingSettings(color='white'),
+                                            PolygonalChain([SingleAnimation.blend_lists([line_c, line_c+y1_shift], t2),
+                                                            SingleAnimation.blend_lists([line_c, line_c+y2_shift], t2)])),
+                               ]
+        bounds = lambda t1, t2: ((-172, 172), (-88, 88))
+        differentials = [Gaussian(.3, 50, None), Gaussian(.7, 50, None)]
+        animation = AnimationPipeline(pipe, bounds, differentials)
+        animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
+                         speed=.25)
 
 
 if __name__ == '__main__':
@@ -197,4 +464,15 @@ if __name__ == '__main__':
     # lines_to_circle('lines_to_circle.mp4')
     # line_race('line_race.mp4', 240)
     # line_crossings('crossing.mp4')
-    rotate_projective_line('rotate_projective_line.mp4')
+    # rotate_projective_line('minkowski//renders//rotate_projective_line.mp4')
+    # circles_collapsing('minkowski//renders//collapsing.mp4', .25)
+
+    # different_configurations(1, 'minkowski//final//conf1.mp4')
+    # different_configurations(2, 'minkowski//final//conf2.mp4')
+    # different_configurations(3, 'minkowski//final//conf3.mp4')
+    different_configurations(4, 'minkowski//final//conf4.mp4')
+    different_configurations(5, 'minkowski//final//conf5.mp4')
+    different_configurations(6, 'minkowski//final//conf6.mp4')
+    different_configurations(7, 'minkowski//final//conf7.mp4')
+    different_configurations(8, 'minkowski//final//conf8.mp4')
+

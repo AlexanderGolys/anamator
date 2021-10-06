@@ -211,7 +211,6 @@ class BitmapObject(Object):
         if value != self.bitmap.shape[:2]:
             raise ValueError(f'Shapes do not match: {value} vs {self.bitmap.shape[:2]}')
 
-
     def reshape(self, new_size):
         """
         Changes the resolution.
@@ -219,11 +218,12 @@ class BitmapObject(Object):
         Args:
             new_size: target resolution
         """
-
+        if 0 in new_size:
+            self.bitmap = np.array([[]]*4)
+            return
         img = Image.fromarray(self.bitmap, "RGBA")
         img = img.resize(new_size)
         self.bitmap = np.array(img)
-        self.res = new_size
 
     @staticmethod
     def static_reshape(img_bitmap, new_size):
@@ -237,7 +237,8 @@ class BitmapObject(Object):
         Returns:
             np.array: Reshaped image bitmap.
         """
-
+        if 0 in new_size:
+            return np.array([[]]*4)
         img = Image.fromarray(img_bitmap, "RGBA")
         img = img.resize(new_size)
         return np.array(img)
@@ -294,7 +295,7 @@ class ImageObject(BitmapObject):
     Image object.
     """
 
-    def __init__(self, image_path, resolution=None):
+    def __init__(self, image_path, resolution=None, scale=None):
         """
         Args:
             image_path (str): Path to the graphics.
@@ -306,14 +307,21 @@ class ImageObject(BitmapObject):
         """
         # super().__init__()
         img = Image.open(image_path)
-        image = np.array(img)
+        image = np.array(img).swapaxes(0, 1)[:, ::-1, :]
         if image.shape[2] != 4:
             raise AttributeError("Image has to be in RGBA")
 
         if resolution is None:
-            res = image.shape[:2]
+            res = image.shape[:2][::-1]
         else:
             res = resolution
+
+        if scale is not None:
+            resolution = res = list(map(lambda x: int(x*scale), res))
+
+        if 0 in resolution:
+            super().__init__(np.array([]), (0, 0))
+            return
 
         if image.shape[:2] != res:
             image = BitmapObject.static_reshape(image, resolution)
@@ -653,9 +661,37 @@ class PolygonalChain(ParametricObject):
     """
     def __init__(self, points):
         interval = (0, len(points)-1)
-        x_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][0] + (1-(t-math.floor(t)))*points[math.floor(t)+1][0]
-        y_foo = lambda t: (t-math.floor(t))*points[math.floor(t)][1] + (1-(t-math.floor(t)))*points[math.floor(t)+1][1]
+
+        def x_foo(t):
+            t = min(t, interval[-1] - 1e-9)
+            return (t-math.floor(t))*points[math.floor(t)][0] + (1-(t-math.floor(t)))*points[math.floor(t)+1][0]
+
+        def y_foo(t):
+            t = min(t, interval[-1] - 1e-9)
+            return (t - math.floor(t)) * points[math.floor(t)][1] + (1 - (t - math.floor(t))) * points[math.floor(t) + 1][1]
+
         super().__init__(x_foo, y_foo, interval)
+
+
+class LinearFunction(PolygonalChain):
+    def __init__(self, a, b, bounds):
+        foo = lambda x: a*x + b
+        horizontal_0 = np.array((bounds[0][0], foo(bounds[0][0])))
+        horizontal_1 = np.array((bounds[0][1], foo(bounds[0][1])))
+        horizontal_vector = horizontal_1 - horizontal_0
+
+        if a == 0:
+            super().__init__(list(map(tuple, [horizontal_0, horizontal_1])))
+            return
+
+        vertical_0 = np.array(((bounds[1][0] - b)/a, foo((bounds[1][0] - b)/a)))
+        vertical_1 = np.array(((bounds[1][1] - b)/a, foo((bounds[1][1] - b)/a)))
+        vertical_vector = vertical_1 - vertical_0
+
+        if np.linalg.norm(horizontal_vector) > np.linalg.norm(vertical_vector):
+            super().__init__(list(map(tuple, [vertical_0, vertical_1])))
+            return
+        super().__init__(list(map(tuple, [horizontal_0, horizontal_1])))
 
 
 class BitmapDisk(BitmapCircle):
@@ -912,8 +948,8 @@ class PredefinedSettings:
     def radius_func_creator(at_75=12, end=8):
         def radius(x):
             if x < .75:
-                return at_75 / .75 * x
-            return 4 * (end - at_75) * x - 3 * end + 4 * at_75
+                return int(at_75 / .75 * x)
+            return int(4 * (end - at_75) * x - 3 * end + 4 * at_75)
         return radius
 
     @staticmethod

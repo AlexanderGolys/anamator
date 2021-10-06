@@ -611,6 +611,16 @@ def test_pipeline(filename):
     animation.render(filename, PipelineSettings())
 
 
+def test_line_between_points():
+    points = [(1, 1), (2, 3)]
+    bounds = ([-5, 5], [-5, 5])
+    bounds_f = lambda t: bounds
+    pipe = lambda t: [PipeInstance(BitmapBlittingSettings(), [BitmapDisk(10, 'white', 1)]*2, blitting_type='bitmap', centers=points),
+                      PipeInstance(ParametricBlittingSettings(), AnalyticGeometry.line_between_points(*points, interval=bounds[0]))]
+    differential = [lambda x: 1]
+    animation = AnimationPipeline(pipe, bounds_f, differential)
+    animation.render('test_line_between_points.mp4', PipelineSettings(fps=1))
+
 if __name__ == '__main__':
     # init()
     # basic_test()
@@ -629,4 +639,5 @@ if __name__ == '__main__':
     # boys_roman_homotopy(1500, HD, id_='exp_homotopy', filename='roman_to_boys_static.mp4')
     # rescale_image_object('img//turtle.png', 7)
     # test_vector()
-    test_pipeline('pipe.mp4')
+    # test_pipeline('pipe.mp4')
+    test_line_between_points()
