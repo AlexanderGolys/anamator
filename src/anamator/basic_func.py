@@ -17,6 +17,10 @@ from .objects import normalize_function, make_periodic
 
 DEBUG = True
 DEBUG_SHORT = False
+F4K = (3840, 2160)
+RADIUS_FOO = objects.PredefinedSettings.radius_func_creator(24, 16)
+CIRCLES_THIC = 8
+PADDING = 200
 
 
 def debug(log, short=True):
@@ -1285,7 +1289,7 @@ class AnimationPipeline:
 
             frame.blit_axis_surface()
             if png_filename:
-                frame.generate_png(filename)
+                frame.generate_png(png_filename)
             return frame
 
         animator = MultiDifferentialAnimation(frame_generator, *self.differentials)

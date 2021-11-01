@@ -45,30 +45,43 @@ class Environment:
 
 
 class Thing(ABC):
-    pass
+    @abstractmethod
+    def __init__(self, environment, engine=ElasticGravity()):
+        self.env = environment
+        self.engine = engine
+        self.hash = np.random.randint(0, 10000000000)
+
+    @abstractmethod
+    def __sub__(self, other):
+        pass
+
+    def __eq__(self, other):
+        return self.hash == other.hash
+
+    @abstractmethod
+    def update_state(self):
+        pass
 
 
 class BallParticle(Thing):
     def __init__(self, environment, radius=50, init_position=(0, 0), init_velocity=(0, 0), init_acceleration=(1, 1),
                  engine=ElasticGravity(), radius_px=None, parametric=False, color='white', opacity=1):
+        super().__init__(environment, engine)
         self.pos = np.array(init_position)
         self.v = np.array(init_velocity)
         self.a = np.array(init_acceleration)
-        self.env = environment
         self.r = radius
-        self.engine = engine
         self.radius_px = radius_px if radius_px is not None else radius
         self.parametric = parametric
         self.color = color
         self.opacity = opacity
-        self.hash = np.random.randint(0, 1000000)
 
     @functools.singledispatchmethod
     def __sub__(self, other):
+        if isinstance(other, Wall):
+            x, y = self.pos
+            return abs(other.a*x + other.b*y + other.c)/np.linalg.norm([other.a, other.b])
         return np.linalg.norm(self.pos - other.pos) - self.r - other.r
-
-    def __eq__(self, other):
-        return self.hash == other.hash
 
     def move(self):
         self.pos += self.v
@@ -99,6 +112,21 @@ class BallParticle(Thing):
 
     def __str__(self):
         return f'Ball(p={self.pos}, v={self.v}, a={self.a})'
+
+
+class Wall(Thing):
+    def __init__(self, environment, a, b, c, engine=ElasticGravity()):
+        super().__init__(environment, engine)
+        self.a = a
+        self.b = b
+        self.c = c
+
+    @functools.singledispatchmethod
+    def __sub__(self, other):
+        return other - self
+
+    def update_state(self):
+        pass
 
 
 if __name__ == '__main__':

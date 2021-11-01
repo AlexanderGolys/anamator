@@ -87,7 +87,8 @@ class ColorParser:
             'uranian blue': (189, 224, 254, 1),
             'blush': (234, 99, 140, 1),
             'claret': (137, 2, 62, 1),
-            'independence': (52, 67, 94, 1)
+            'independence': (52, 67, 94, 1),
+            'pink': (248, 189, 196, 1)
 
         }
         if isinstance(color, str) and color[0] != '#':

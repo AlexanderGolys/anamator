@@ -226,7 +226,7 @@ def circles_collapsing(filename, speed):
                              center=between)]
     differentials = [Gaussian(.5, 50, None)]
     animation = AnimationPipeline(pipe, lambda t: [(-100, 100), (-100, 100)], differentials)
-    animation.render(filename, PipelineSettings(), speed=speed)
+    animation.render(filename, PipelineSettings(resolution=F4K, x_padding=PADDING, y_padding=PADDING), speed=speed)
 
 
 def different_configurations(number, filename):
@@ -349,7 +349,7 @@ def different_configurations(number, filename):
                                PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
                                             blitting_type='bitmap', center=c2)]
         bounds = lambda t1, t2: ((-172, 172), (-88, 88))
-        differentials = [Gaussian(.3, 50, None), Gaussian(.7, 50, None)]
+        differentials = [Gaussian(.3, 50, None), Gaussian(.57, 200, None)]
         animation = AnimationPipeline(pipe, bounds, differentials)
         animation.render(filename, PipelineSettings(x_padding=PADDING, y_padding=PADDING, resolution=F4K),
                          speed=.25)
@@ -366,7 +366,7 @@ def different_configurations(number, filename):
 
         pipe = lambda t: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
                                        Ellipse(c1, r1, r1)),
-                          PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t), 'white', 1),
+                          PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
                                        blitting_type='bitmap', center=SingleAnimation.blend_lists([c2, c2_end], t))]
         bounds = lambda t: ((-172, 172), (-88, 88))
         differentials = [Gaussian(.3, 50, None)]
@@ -386,16 +386,17 @@ def different_configurations(number, filename):
 
         between = (c1 + c2_end)/2
 
-        pipe = lambda t1, t2, t3: [PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
+        pipe = lambda t1, t2, t3: [PipeInstance(ParametricBlittingSettings(color=color_growing(t3)),
+                                                PolygonalChain([SingleAnimation.blend_lists([between, c1], t3),
+                                                               SingleAnimation.blend_lists([between, c2_end], t3)])),
+                                   PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
                                                 Ellipse(c1, (1-t1)*r1, (1-t1)*r1)),
                                    PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
                                                 blitting_type='bitmap',
                                                 center=c1),
-                                   PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(t2), 'white', 1),
+                                   PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
                                                 blitting_type='bitmap', center=c2_end),
-                                   PipeInstance(ParametricBlittingSettings(color=color_growing(t3)),
-                                                PolygonalChain([SingleAnimation.blend_lists([between, c1], t3),
-                                                               SingleAnimation.blend_lists([between, c2_end], t3)]))
+
                                    ]
         bounds = lambda t1, t2, t3: ((-172, 172), (-88, 88))
         differentials = [Gaussian(.3, 50, None), Gaussian(.5, 50, None), Gaussian(.7, 50, None)]
@@ -424,16 +425,23 @@ def different_configurations(number, filename):
 
         r = third_r
 
-        pipe = lambda t1, t2: [PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
+        pipe = lambda t1, t2: [PipeInstance(ParametricBlittingSettings(color='gray'),
+                                            PolygonalChain([SingleAnimation.blend_lists([c1, point_c1], t1),
+                                                            SingleAnimation.blend_lists([c2, point_c1], t1)])),
+                               PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
                                             blitting_type='bitmap',
                                             center=SingleAnimation.blend_lists([c2, point_c2], t1)),
                                PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1), 'white', 1),
                                             blitting_type='bitmap',
                                             center=SingleAnimation.blend_lists([c1, point_c1], t1)),
-                               PipeInstance(ParametricBlittingSettings(color='gray'),
-                                            PolygonalChain([SingleAnimation.blend_lists([c1, point_c1], t1),
-                                                            SingleAnimation.blend_lists([c2, point_c1], t2)])),
 
+                               PipeInstance(ParametricBlittingSettings(color='gray'),
+                                            PolygonalChain(
+                                                [SingleAnimation.blend_lists([line_c, line_c + y1_shift], t1),
+                                                 SingleAnimation.blend_lists([line_c, line_c + y2_shift], t1)])),
+                               PipeInstance(ParametricBlittingSettings(color='white'),
+                                            PolygonalChain([SingleAnimation.blend_lists([c1, circle_c], t2),
+                                                            SingleAnimation.blend_lists([c2, line_c], t2)])),
                                PipeInstance(BitmapBlittingSettings(), BitmapDisk(RADIUS_FOO(1-t2), 'white', 1),
                                             blitting_type='bitmap',
                                             center=SingleAnimation.blend_lists([c2, line_c], t1)),
@@ -443,12 +451,7 @@ def different_configurations(number, filename):
                                PipeInstance(ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0,
                                                                        color=color_growing(t2)),
                                             Ellipse(circle_c, t2*r, t2*r)),
-                               PipeInstance(ParametricBlittingSettings(color='white'),
-                                            PolygonalChain([SingleAnimation.blend_lists([c1, circle_c], t1),
-                                                            SingleAnimation.blend_lists([c2, line_c], t2)])),
-                               PipeInstance(ParametricBlittingSettings(color='white'),
-                                            PolygonalChain([SingleAnimation.blend_lists([line_c, line_c+y1_shift], t2),
-                                                            SingleAnimation.blend_lists([line_c, line_c+y2_shift], t2)])),
+
                                ]
         bounds = lambda t1, t2: ((-172, 172), (-88, 88))
         differentials = [Gaussian(.3, 50, None), Gaussian(.7, 50, None)]
@@ -465,14 +468,14 @@ if __name__ == '__main__':
     # line_race('line_race.mp4', 240)
     # line_crossings('crossing.mp4')
     # rotate_projective_line('minkowski//renders//rotate_projective_line.mp4')
-    # circles_collapsing('minkowski//renders//collapsing.mp4', .25)
+    circles_collapsing('minkowski//renders//collapsing.mp4', .2)
 
     # different_configurations(1, 'minkowski//final//conf1.mp4')
     # different_configurations(2, 'minkowski//final//conf2.mp4')
     # different_configurations(3, 'minkowski//final//conf3.mp4')
-    different_configurations(4, 'minkowski//final//conf4.mp4')
-    different_configurations(5, 'minkowski//final//conf5.mp4')
-    different_configurations(6, 'minkowski//final//conf6.mp4')
-    different_configurations(7, 'minkowski//final//conf7.mp4')
-    different_configurations(8, 'minkowski//final//conf8.mp4')
+    # different_configurations(4, 'minkowski//final//conf4.mp4')
+    # different_configurations(5, 'minkowski//final//conf5.mp4')
+    # different_configurations(6, 'minkowski//final//conf6.mp4')
+    # different_configurations(7, 'minkowski//final//conf7.mp4')
+    # different_configurations(8, 'minkowski//final//conf8.mp4')
 

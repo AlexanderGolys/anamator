@@ -51,7 +51,7 @@ def power_point_0(circ_center, circ_r, point_coords, resolution=FHD):
 
     animator = SingleAnimation(frame_generator, Gaussian(0.5, 70, None))
 
-    animator.render('final//pp_0_blur.mp4', RenderSettings(resolution=resolution), speed=.25)
+    animator.render('final//pp_0.mp4', RenderSettings(resolution=resolution), speed=.25)
 
 
 def power_point_1(circ_center, circ_r, point_coords):
@@ -61,12 +61,12 @@ def power_point_1(circ_center, circ_r, point_coords):
 
     # intervals = (r_x(t),d_x(t))
     def frame_generator(interval):
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(F4K, 'black', 200, 200)
         frame.add_axis_surface((-172, 172), (-88, 88))
         circle = ParametricObject(lambda x: circ_r * math.cos(x) + circ_center[0],
                                   lambda x: circ_r * math.sin(x) + circ_center[1])
         point = BitmapDisk(12, 'white', 1)
-        frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(),
+        frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(),
                                                   interval_of_param=(0, 2 * math.pi))
         frame.axis_surface.blit_bitmap_object(point_coords, point, BitmapBlittingSettings(blur=3))
         try:
@@ -76,8 +76,8 @@ def power_point_1(circ_center, circ_r, point_coords):
             func_r = Function(const=0)
 
         func_l = Function(const=circ_center[1])
-        frame.axis_surface.blit_parametric_object(func_r, ParametricBlittingSettings(), interval_of_param=(circ_center[0], interval[0]))
-        frame.axis_surface.blit_parametric_object(func_l, ParametricBlittingSettings(),
+        frame.axis_surface.blit_parametric_object(func_r, ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0), interval_of_param=(circ_center[0], interval[0]))
+        frame.axis_surface.blit_parametric_object(func_l, ParametricBlittingSettings(thickness=CIRCLES_THIC, blur=0),
                                                   interval_of_param=(circ_center[0], interval[1]))
         frame.blit_axis_surface()
         return frame
@@ -87,7 +87,7 @@ def power_point_1(circ_center, circ_r, point_coords):
     print(x_q)
 
     animator = IntervalSequenceAnimation([(circ_center[0],circ_center[0]),(x_q,point_coords[0])], Gaussian(0.5, 30, None), frame_generator)
-    animator.render('pp_1.mp4', RenderSettings(fps=10))
+    animator.render('final//pp_1.mp4', RenderSettings(fps=24, resolution=F4K), speed=.25)
 
 
 def power_point_2(circ_center, circ_r, point_coords):
@@ -104,18 +104,18 @@ def power_point_2(circ_center, circ_r, point_coords):
     # print(circ_r == math.sqrt(x_q**2 + y_q**2))
 
     def frame_generator(t):
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(F4K, 'black', PADDING, PADDING)
         frame.add_axis_surface((-172, 172), (-88, 88))
+        func_power = Function(lambda x: -math.tan(np.arcsin(circ_r/d))*(x-point_coords[0]))
+        frame.axis_surface.blit_parametric_object(func_power, CIRCLE_SETTINGS('gray'), interval_of_param=(point_coords[0], point_coords[0]-t*(point_coords[0]-x_q)))
         circle = ParametricObject(lambda x: circ_r * math.cos(x) + circ_center[0],
                                   lambda x: circ_r * math.sin(x) + circ_center[1])
         point = BitmapDisk(12, 'white', 1)
-        frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(),
+        frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(),
                                                   interval_of_param=(0, 2 * math.pi))
-        frame.axis_surface.blit_bitmap_object(point_coords, point, BitmapBlittingSettings(blur=3))
+        frame.axis_surface.blit_bitmap_object(point_coords, point, BitmapBlittingSettings(blur=0))
         polygonal_chain = PolygonalChain([(x_q,y_q), circ_center, point_coords, (x_q, y_q)])
-        frame.axis_surface.blit_parametric_object(polygonal_chain, ParametricBlittingSettings(), interval_of_param=(0, 2))
-        func_power = Function(lambda x: -math.tan(np.arcsin(circ_r/d))*(x-point_coords[0]))
-        frame.axis_surface.blit_parametric_object(func_power, ParametricBlittingSettings(), interval_of_param=(point_coords[0], point_coords[0]-t*(point_coords[0]-x_q)))
+        frame.axis_surface.blit_parametric_object(polygonal_chain, CIRCLE_SETTINGS(), interval_of_param=(0, 2))
         # try:
         #     a = -1/math.tan(math.pi-np.arcsin(circ_r/d))
         #     func_r = Function(lambda x: a*(x-circ_center[0])+circ_center[1])
@@ -136,7 +136,7 @@ def power_point_2(circ_center, circ_r, point_coords):
     # animator = IntervalSequenceAnimation([(circ_center[0],circ_center[0]),(x_q,point_coords[0])], Gaussian(0.5, 30, None), frame_generator)
     # animator.render('pp_1.mp4', RenderSettings(fps=10))
     animator = SingleAnimation(frame_generator, Gaussian(0.5, 30, None))
-    animator.render('pp_2.mp4', RenderSettings(fps=10))
+    animator.render('final//pp_2.mp4', RenderSettings(fps=24, resolution=F4K), speed=.25)
 
 
 def malfatti_calculations(v_A, v_B, v_C):
@@ -254,12 +254,12 @@ def malfatti_0(v_A, v_B, v_C):
     ctr_3 = [ctr_3_pretrans[0] + v_A[0], ctr_3_pretrans[1] + v_A[1]]
 
     def frame_generator(t_triangle, *t_c):
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(F4K, 'black', PADDING, PADDING)
         frame.add_axis_surface((-172, 172), (-88, 88))
         v_B_trans = [v_B[0] + v_A[0], v_B[1] + v_A[1]]
         v_C_trans = [v_C[0] + v_A[0], v_C[1] + v_A[1]]
         triangle = PolygonalChain([v_A, v_B_trans, v_C_trans, v_A, v_B_trans])
-        frame.axis_surface.blit_parametric_object(triangle, ParametricBlittingSettings(), interval_of_param=(0, 3*t_triangle))
+        frame.axis_surface.blit_parametric_object(triangle, CIRCLE_SETTINGS(), interval_of_param=(0, 3*t_triangle))
 
         circle_1 = ParametricObject(lambda x: r_1 * math.cos(x) + ctr_1[0],
                                     lambda x: r_1 * math.sin(x) + ctr_1[1])
@@ -271,13 +271,14 @@ def malfatti_0(v_A, v_B, v_C):
         circles = [circle_1, circle_2, circle_3]
 
         for circle, t in zip(circles, t_c):
-            frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(), interval_of_param=(0, t*2*math.pi))
+            if t > .01:
+                frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(), interval_of_param=(0, t*2*math.pi))
 
         frame.blit_axis_surface()
         return frame
 
-    animator = MultiDifferentialAnimation(frame_generator, Gaussian(0.25, 70, None), Gaussian(0.5, 70, None), Gaussian(0.5, 70, None), Gaussian(0.75, 70, None))
-    animator.render('malfatti_0.mp4', RenderSettings(), speed=.5)
+    animator = MultiDifferentialAnimation(frame_generator, Gaussian(0.2, 70, None), Gaussian(0.75, 70, None), Gaussian(0.75, 70, None), Gaussian(0.75, 70, None))
+    animator.render('final//malfatti_0.mp4', RenderSettings(resolution=F4K), speed=.1)
 
 
 def malfatti_1(v_A, v_B, v_C):
@@ -329,7 +330,7 @@ def malfatti_1(v_A, v_B, v_C):
 
     def frame_generator(*t):
 
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(F4K, 'black', PADDING, PADDING)
         frame.add_axis_surface((-172, 172), (-88, 88))
         circle_1 = ParametricObject(lambda x: r_1 * math.cos(x) + ctr_1[0],
                                     lambda x: r_1 * math.sin(x) + ctr_1[1])
@@ -361,19 +362,19 @@ def malfatti_1(v_A, v_B, v_C):
         v_B_trans = [v_B[0]+v_A[0], v_B[1]+v_A[1]]
         v_C_trans = [v_C[0]+v_A[0], v_C[1]+v_A[1]]
         triangle = PolygonalChain([v_A, v_B_trans, v_C_trans, v_A, v_B_trans])
-        frame.axis_surface.blit_parametric_object(triangle, ParametricBlittingSettings(), interval_of_param=(0, 3))
+        frame.axis_surface.blit_parametric_object(triangle, CIRCLE_SETTINGS(), interval_of_param=(0, 3))
 
         for circle in circles:
-            frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(),
+            frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(),
                                                       interval_of_param=(0, 2 * math.pi))
 
         for coords, differential in zip(tr_t_trans, t[:7]):
-            point = BitmapDisk(2 * radius(differential), 'white', 1)
-            frame.axis_surface.blit_bitmap_object(coords, point, BitmapBlittingSettings(blur=3))
+            point = BitmapDisk(RADIUS_FOO(differential), 'white', 1)
+            frame.axis_surface.blit_bitmap_object(coords, point, BitmapBlittingSettings(blur=0))
 
         for coords, differential in zip(c_t_trans, t[-3:]):
-            point = BitmapDisk(2 * radius(differential), 'white', 1)
-            frame.axis_surface.blit_bitmap_object(coords, point, BitmapBlittingSettings(blur=3))
+            point = BitmapDisk(RADIUS_FOO(differential), 'white', 1)
+            frame.axis_surface.blit_bitmap_object(coords, point, BitmapBlittingSettings(blur=0))
 
         frame.blit_axis_surface()
         # frame.generate_png('malf2.png')
@@ -382,7 +383,7 @@ def malfatti_1(v_A, v_B, v_C):
     differentials = [Gaussian(t, 70, None) for t in np.linspace(.2, .4, 6)] + [Gaussian(t, 70, None) for t in np.linspace(.65, .8, 3)]
     # animator = MultiDifferentialAnimation(frame_generator, *[Gaussian(0.25, 70, None)]*9)
     animator = MultiDifferentialAnimation(frame_generator, *differentials)
-    animator.render('malfatti_1.mp4', RenderSettings(), speed=.5)
+    animator.render('malfatti_1.mp4', RenderSettings(resolution=F4K), speed=.25)
 
 
 def appolonius_radii(ctr, r, ctrs):
@@ -390,12 +391,12 @@ def appolonius_radii(ctr, r, ctrs):
     return [radius(ctr, c, r) for c in ctrs]
 
 
-def appolonius_0(ctr, r, ctrs):
+def appolonius_0(ctr, r, ctrs, res, padding):
     radii = appolonius_radii(ctr, r, ctrs)
     print(radii)
 
     # testing
-    f = OneAxisFrame(FHD)
+    f = OneAxisFrame(res, 'black', padding, padding)
     f.add_axis_surface((-172, 172), (-88, 88))
 
     def create_cos(r, c):
@@ -404,30 +405,48 @@ def appolonius_0(ctr, r, ctrs):
     def create_sin(r, c):
         return lambda x: r * math.sin(x) + c
 
-    circs = [ParametricObject(lambda x: r * math.cos(x) + ctr[0], lambda x: r * math.sin(x) + ctr[1])] + [
-        ParametricObject(create_cos(r_i, ctr_i[0]), create_sin(r_i, ctr_i[1])) for
+    new_c = ParametricObject(lambda x: r * math.cos(x) + ctr[0], lambda x: r * math.sin(x) + ctr[1])
+    circs = [ParametricObject(create_cos(r_i, ctr_i[0]), create_sin(r_i, ctr_i[1])) for
         r_i, ctr_i in zip(radii, ctrs)]
 
     for circle in circs:
-        f.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(),
+        f.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS(),
                                                   interval_of_param=(0, 2 * math.pi))
     f.blit_axis_surface()
     f.generate_png('appolonius.png')
 
     def frame_generator(*t):
-        frame = OneAxisFrame(FHD)
+        frame = OneAxisFrame(res, 'black', padding, padding)
         frame.add_axis_surface((-172, 172), (-88, 88))
 
-        circles = [ParametricObject(lambda x: r * math.cos(x) + ctr[0], lambda x: r * math.sin(x) + ctr[1])] + [ParametricObject(create_cos(r_i, ctr_i[0]), create_sin(r_i, ctr_i[1])) for
-                   r_i, ctr_i in zip(radii, ctrs)]
-        for circle, differential in zip(circles, t):
-            frame.axis_surface.blit_parametric_object(circle, ParametricBlittingSettings(),
-                                                      interval_of_param=(0, differential * 2 * math.pi))
+        new_c = ParametricObject(lambda x: r * math.cos(x) + ctr[0], lambda x: r * math.sin(x) + ctr[1])
+        circs = [ParametricObject(create_cos(r_i, ctr_i[0]), create_sin(r_i, ctr_i[1])) for
+                 r_i, ctr_i in zip(radii, ctrs)]
+        if t[0] > .01:
+            frame.axis_surface.blit_parametric_object(new_c, CIRCLE_SETTINGS('white'),
+                                                      interval_of_param=(0, t[0]*2 * math.pi))
+        for circle in circs:
+            frame.axis_surface.blit_parametric_object(circle, CIRCLE_SETTINGS('gray'),
+                                                      interval_of_param=(0, 2 * math.pi))
+
+        centers = np.array(ctrs)
+        main_c_x3 = np.array([ctr]*3)
+        radii_np = np.array(radii)[..., None]
+        rs = np.concatenate((radii_np, radii_np), axis=1)
+        vectors = (centers - main_c_x3)*r/(rs + r)
+        tangent_points = main_c_x3 + vectors
+
+        for c, t_i in zip(tangent_points, t[1:]):
+            point = BitmapDisk(RADIUS_FOO(t_i), 'white', 1)
+            frame.axis_surface.blit_bitmap_object(c, point, BitmapBlittingSettings(blur=0))
+
         frame.blit_axis_surface()
+        frame.generate_png('appolonius.png')
         return frame
 
-    animator = MultiDifferentialAnimation(frame_generator, *[Gaussian(0.25, 70, None)] * 4)
-    animator.render('appolonius_0.mp4', RenderSettings())
+    diffs = [Gaussian(0.5, 70, None), Gaussian(0.56, 130, None), Gaussian(0.38, 130, None), Gaussian(0.44, 130, None)]
+    animator = MultiDifferentialAnimation(frame_generator, *diffs)
+    animator.render('appolonius_0.mp4', RenderSettings(resolution=res), speed=.25)
 
 
 def two_circles_power_0(r1, r2, resolution=FHD, speed=1):
@@ -449,7 +468,7 @@ def two_circles_power_0(r1, r2, resolution=FHD, speed=1):
         frame.add_axis_surface(*bounds)
         if t == 0:
             line_intersec1 = ParametricObject(lambda x: r1, lambda x: x)
-            frame.axis_surface.blit_parametric_object(line_intersec1, ParametricBlittingSettings(), interval_of_param=(-88, 88))
+            frame.axis_surface.blit_parametric_object(line_intersec1, CIRCLE_SETTINGS(), interval_of_param=(-88, 88))
             t_interval = (-pi/2, pi/2)
         else:
             a1 = -p_x / (r1 ** 2 - p_x ** 2) ** .5
@@ -461,15 +480,15 @@ def two_circles_power_0(r1, r2, resolution=FHD, speed=1):
             line_intersec1 = LinearFunction(a1, b1, bounds)
             line_intersec2 = LinearFunction(a2, b2, bounds)
 
-            frame.axis_surface.blit_parametric_object(line_intersec1, ParametricBlittingSettings())
-            frame.axis_surface.blit_parametric_object(line_intersec2, ParametricBlittingSettings())
+            frame.axis_surface.blit_parametric_object(line_intersec1, CIRCLE_SETTINGS())
+            frame.axis_surface.blit_parametric_object(line_intersec2, CIRCLE_SETTINGS())
             t2 = -np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5)
             t_interval = (np.arctan((-p_x + x_2) / (r1 ** 2 -p_x ** 2)**.5), np.arctan(-p_x / (r1 ** 2 - p_x ** 2) ** .5) + pi)
 
         angle = ParametricObject(lambda x: 10*math.cos(x) + p_x, lambda x: 10*math.sin(x) + p_y)
         # the first point is from line_intersec2 (tangent to small circles), the second one from line_intersec1 (tangent to big circle)
         frame.axis_surface.blit_parametric_object(angle,
-                                                      ParametricBlittingSettings(),
+                                                      CIRCLE_SETTINGS(),
                                                       interval_of_param=t_interval)
         # frame.axis_surface.blit_parametric_object(angle,
         #                                       ParametricBlittingSettings(),
@@ -494,12 +513,14 @@ def two_circles_power_0(r1, r2, resolution=FHD, speed=1):
 
 
 if __name__ == '__main__':
-    power_point_0((0,0), 50, (160, 0), F4K)
+    # power_point_0((0,0), 50, (160, 0), F4K)
+    # power_point_1((0,0), 50, (160, 0))
+
     # power_point_2((0, 0), 50, (160, 0))
     # malfatti_calculations((-120,-50),(270,0), (100,120))
     # malfatti_0((-120, -50), (270, 0), (100, 120))
     # malfatti_1((-120, -50), (270, 0), (100, 120))
-    # appolonius_0((0,0), 20, [(16,-32), (38,16), (-24, 32)])
+    appolonius_0((0,0), 20, [(16,-32), (38,16), (-24, 32)], F4K, PADDING)
     # print(appolonius_radii((0, 0), 50, [(70, 30), (-70, -100), (-50, 200)]))
     # two_circles_power_0(50, 30, speed=.1)
     # print('dupa')
